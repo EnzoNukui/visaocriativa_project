@@ -14,16 +14,209 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      order_items: {
+        Row: {
+          id: string
+          order_id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          size: string
+          supplier_price: number
+          supplier_total: number
+          total: number
+          unit_price: number
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          product_id: string
+          product_name: string
+          quantity?: number
+          size: string
+          supplier_price?: number
+          supplier_total?: number
+          total?: number
+          unit_price?: number
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          size?: string
+          supplier_price?: number
+          supplier_total?: number
+          total?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          created_by: string
+          grade: string
+          id: string
+          order_number: string
+          phone: string
+          responsible_name: string
+          status: string
+          student_name: string
+          supplier_total_amount: number
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          grade: string
+          id?: string
+          order_number: string
+          phone: string
+          responsible_name: string
+          status?: string
+          student_name: string
+          supplier_total_amount?: number
+          total_amount?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          grade?: string
+          id?: string
+          order_number?: string
+          phone?: string
+          responsible_name?: string
+          status?: string
+          student_name?: string
+          supplier_total_amount?: number
+          total_amount?: number
+        }
+        Relationships: []
+      }
+      product_variants: {
+        Row: {
+          id: string
+          price: number
+          product_id: string
+          size: string
+          supplier_price: number
+        }
+        Insert: {
+          id?: string
+          price?: number
+          product_id: string
+          size: string
+          supplier_price?: number
+        }
+        Update: {
+          id?: string
+          price?: number
+          product_id?: string
+          size?: string
+          supplier_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "supplier"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +343,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "supplier"],
+    },
   },
 } as const
