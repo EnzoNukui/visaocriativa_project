@@ -173,7 +173,7 @@ const Orders = () => {
                     <th className="p-3 hidden md:table-cell">Turma</th>
                     <th className="p-3">Total</th>
                     <th className="p-3">Status</th>
-                    {isSupplier && <th className="p-3 hidden md:table-cell">Prazo</th>}
+                    <th className="p-3 hidden md:table-cell">Prazo</th>
                     <th className="p-3 hidden md:table-cell">Data</th>
                     <th className="p-3">Ações</th>
                   </tr>
@@ -203,17 +203,15 @@ const Orders = () => {
                             </span>
                           )}
                         </td>
-                        {isSupplier && (
-                          <td className="p-3 hidden md:table-cell">
-                            {order.status !== 'delivered' ? (
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${deadline.color}`}>
-                                {deadline.label}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Entregue</span>
-                            )}
-                          </td>
-                        )}
+                        <td className="p-3 hidden md:table-cell">
+                          {order.status !== 'delivered' ? (
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${deadline.color}`}>
+                              {deadline.label}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Entregue</span>
+                          )}
+                        </td>
                         <td className="p-3 hidden md:table-cell text-muted-foreground">
                           {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                         </td>
