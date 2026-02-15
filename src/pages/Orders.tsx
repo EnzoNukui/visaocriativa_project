@@ -75,12 +75,14 @@ const Orders = () => {
   const totalSchool = orders.reduce((s, o) => s + o.totalAmount, 0);
   const totalSupplier = orders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
   const totalProfit = totalSchool - totalSupplier;
+  const pendingProfit = orders.filter(o => o.status === 'pending').reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
+  const settledProfit = totalProfit - pendingProfit;
 
   return (
     <div className="space-y-4">
       {/* Supplier Financial Summary */}
       {isSupplier && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -114,14 +116,25 @@ const Orders = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-primary/30 bg-primary/5">
+          <Card className="border-yellow-300 bg-yellow-50/50">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                <ArrowRightLeft className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center">
+                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium">Repassar à Escola</p>
-                <p className="text-lg font-bold text-primary">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xs text-muted-foreground font-medium">Pendente Repasse</p>
+                <p className="text-lg font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-green-300 bg-green-50/50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-green-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Lucro Repassado</p>
+                <p className="text-lg font-bold text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
@@ -217,6 +230,9 @@ const Orders = () => {
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-1">
+                            {order.status !== 'pending' && (
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 mr-1">Repassado</span>
+                            )}
                             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
                               <Eye className="w-4 h-4" />
                             </Button>

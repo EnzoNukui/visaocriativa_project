@@ -22,6 +22,8 @@ const Dashboard = () => {
   const totalRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
   const totalSupplierCost = orders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
   const totalProfit = totalRevenue - totalSupplierCost;
+  const pendingProfit = orders.filter(o => o.status === 'pending').reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
+  const settledProfit = totalProfit - pendingProfit;
   const pending = orders.filter(o => o.status === 'pending').length;
   const production = orders.filter(o => o.status === 'production').length;
 
@@ -34,7 +36,7 @@ const Dashboard = () => {
         <p className="text-muted-foreground">Resumo geral do sistema</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
         <Card>
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -74,8 +76,30 @@ const Dashboard = () => {
               <TrendingUp className="w-5 h-5 text-green-700" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Lucro (Diferença)</p>
+              <p className="text-xs text-muted-foreground">Lucro Total</p>
               <p className="text-xl font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-yellow-300 bg-yellow-50/50">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
+              <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Pendente Repasse</p>
+              <p className="text-xl font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-green-300 bg-green-50/50">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-green-700" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Lucro Repassado</p>
+              <p className="text-xl font-bold text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
