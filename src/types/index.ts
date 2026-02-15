@@ -10,6 +10,7 @@ export interface User {
 export interface ProductVariant {
   size: string;
   price: number; // school price
+  supplierPrice: number;
 }
 
 export interface Product {
@@ -23,8 +24,10 @@ export interface OrderItem {
   productName: string;
   size: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice: number; // school price
+  supplierPrice: number;
   total: number;
+  supplierTotal: number;
 }
 
 export type OrderStatus = 'pending' | 'production' | 'delivered';
@@ -38,6 +41,7 @@ export interface Order {
   phone: string;
   items: OrderItem[];
   totalAmount: number;
+  supplierTotalAmount: number;
   status: OrderStatus;
   createdAt: string;
   createdBy: string;
