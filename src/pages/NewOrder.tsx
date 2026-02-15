@@ -25,7 +25,6 @@ const NewOrder = () => {
   const [phone, setPhone] = useState('');
   const [items, setItems] = useState<OrderItem[]>([]);
 
-  // Temp state for adding item
   const [selProduct, setSelProduct] = useState('');
   const [selSize, setSelSize] = useState('');
   const [selQty, setSelQty] = useState(1);
@@ -41,7 +40,9 @@ const NewOrder = () => {
       size: selSize,
       quantity: selQty,
       unitPrice: selectedVariant.price,
+      supplierPrice: selectedVariant.supplierPrice,
       total: selectedVariant.price * selQty,
+      supplierTotal: selectedVariant.supplierPrice * selQty,
     };
     setItems([...items, newItem]);
     setSelProduct('');
@@ -54,9 +55,14 @@ const NewOrder = () => {
   };
 
   const totalAmount = items.reduce((s, i) => s + i.total, 0);
+  const supplierTotalAmount = items.reduce((s, i) => s + i.supplierTotal, 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!studentName.trim() || !grade.trim()) {
+      toast({ title: 'Erro', description: 'Nome do aluno e turma são obrigatórios.', variant: 'destructive' });
+      return;
+    }
     if (items.length === 0) {
       toast({ title: 'Erro', description: 'Adicione pelo menos um item ao pedido.', variant: 'destructive' });
       return;
@@ -68,6 +74,7 @@ const NewOrder = () => {
       phone,
       items,
       totalAmount,
+      supplierTotalAmount,
       status: 'pending',
       createdBy: user?.id || '',
     });
@@ -83,32 +90,30 @@ const NewOrder = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Student info */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Dados do Aluno</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Nome do Aluno</Label>
+              <Label>Nome do Aluno *</Label>
               <Input value={studentName} onChange={e => setStudentName(e.target.value)} required placeholder="Nome completo" />
             </div>
             <div className="space-y-2">
-              <Label>Turma / Série</Label>
+              <Label>Turma / Série *</Label>
               <Input value={grade} onChange={e => setGrade(e.target.value)} required placeholder="Ex: 3º Ano A" />
             </div>
             <div className="space-y-2">
-              <Label>Nome do Responsável</Label>
-              <Input value={responsibleName} onChange={e => setResponsibleName(e.target.value)} required placeholder="Nome do responsável" />
+              <Label>Nome do Responsável <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+              <Input value={responsibleName} onChange={e => setResponsibleName(e.target.value)} placeholder="Nome do responsável" />
             </div>
             <div className="space-y-2">
-              <Label>Telefone</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} required placeholder="(00) 00000-0000" />
+              <Label>Telefone <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Add items */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Itens do Pedido</CardTitle>
@@ -118,26 +123,18 @@ const NewOrder = () => {
               <div className="flex-1 space-y-2">
                 <Label>Produto</Label>
                 <Select value={selProduct} onValueChange={(v) => { setSelProduct(v); setSelSize(''); }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o produto" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
                   <SelectContent>
-                    {products.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
+                    {products.map(p => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="w-24 space-y-2">
                 <Label>Tamanho</Label>
                 <Select value={selSize} onValueChange={setSelSize} disabled={!selectedProduct}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tam." />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Tam." /></SelectTrigger>
                   <SelectContent>
-                    {selectedProduct?.variants.map(v => (
-                      <SelectItem key={v.size} value={v.size}>{v.size}</SelectItem>
-                    ))}
+                    {selectedProduct?.variants.map(v => (<SelectItem key={v.size} value={v.size}>{v.size}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>

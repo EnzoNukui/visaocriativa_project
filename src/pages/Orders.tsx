@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders } from '@/hooks/useOrders';
+import { getProducts } from '@/data/products';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2, Search, Eye, X } from 'lucide-react';
+import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft } from 'lucide-react';
 import { OrderStatus, Order } from '@/types';
 import {
   Dialog,
@@ -27,6 +28,20 @@ const statusColors: Record<string, string> = {
   production: 'bg-blue-100 text-blue-800',
   delivered: 'bg-green-100 text-green-800',
 };
+
+const DELIVERY_DAYS = 20;
+
+function getDeadlineStatus(createdAt: string): { label: string; color: string; deadlineDate: Date } {
+  const created = new Date(createdAt);
+  const deadline = new Date(created);
+  deadline.setDate(deadline.getDate() + DELIVERY_DAYS);
+  const now = new Date();
+  const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysLeft < 0) return { label: `Atrasado (${Math.abs(daysLeft)}d)`, color: 'text-red-600 bg-red-50', deadlineDate: deadline };
+  if (daysLeft <= 3) return { label: `${daysLeft}d restantes`, color: 'text-orange-600 bg-orange-50', deadlineDate: deadline };
+  return { label: `${daysLeft}d restantes`, color: 'text-green-600 bg-green-50', deadlineDate: deadline };
+}
 
 const Orders = () => {
   const { user } = useAuth();
@@ -56,8 +71,63 @@ const Orders = () => {
     toast({ title: 'Pedido excluído', description: 'O pedido foi removido com sucesso.' });
   };
 
+  // Financial summary for supplier
+  const totalSchool = orders.reduce((s, o) => s + o.totalAmount, 0);
+  const totalSupplier = orders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
+  const totalProfit = totalSchool - totalSupplier;
+
   return (
     <div className="space-y-4">
+      {/* Supplier Financial Summary */}
+      {isSupplier && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Vendido (Escola)</p>
+                <p className="text-lg font-bold">R$ {totalSchool.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-blue-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Custo Fornecedor</p>
+                <p className="text-lg font-bold">R$ {totalSupplier.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-green-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Diferença (Lucro)</p>
+                <p className="text-lg font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                <ArrowRightLeft className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Repassar à Escola</p>
+                <p className="text-lg font-bold text-primary">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold">Pedidos</h2>
@@ -76,17 +146,10 @@ const Orders = () => {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por aluno ou nº do pedido..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
+          <Input placeholder="Buscar por aluno ou nº do pedido..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-44">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="pending">Pendente</SelectItem>
@@ -110,57 +173,65 @@ const Orders = () => {
                     <th className="p-3 hidden md:table-cell">Turma</th>
                     <th className="p-3">Total</th>
                     <th className="p-3">Status</th>
+                    {isSupplier && <th className="p-3 hidden md:table-cell">Prazo</th>}
                     <th className="p-3 hidden md:table-cell">Data</th>
                     <th className="p-3">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(order => (
-                    <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="p-3 font-medium">{order.orderNumber}</td>
-                      <td className="p-3">{order.studentName}</td>
-                      <td className="p-3 hidden md:table-cell">{order.grade}</td>
-                      <td className="p-3">
-                        R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="p-3">
-                        {(isSupplier) ? (
-                          <Select
-                            value={order.status}
-                            onValueChange={(v) => handleStatusChange(order.id, v as OrderStatus)}
-                          >
-                            <SelectTrigger className="h-7 w-32 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pendente</SelectItem>
-                              <SelectItem value="production">Em Produção</SelectItem>
-                              <SelectItem value="delivered">Entregue</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
-                            {statusLabels[order.status]}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 hidden md:table-cell text-muted-foreground">
-                        {new Date(order.createdAt).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-1">
-                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          {isAdmin && (
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(order.id)}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                  {filtered.map(order => {
+                    const deadline = getDeadlineStatus(order.createdAt);
+                    return (
+                      <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <td className="p-3 font-medium">{order.orderNumber}</td>
+                        <td className="p-3">{order.studentName}</td>
+                        <td className="p-3 hidden md:table-cell">{order.grade}</td>
+                        <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="p-3">
+                          {isSupplier ? (
+                            <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v as OrderStatus)}>
+                              <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pendente</SelectItem>
+                                <SelectItem value="production">Em Produção</SelectItem>
+                                <SelectItem value="delivered">Entregue</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
+                              {statusLabels[order.status]}
+                            </span>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        {isSupplier && (
+                          <td className="p-3 hidden md:table-cell">
+                            {order.status !== 'delivered' ? (
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${deadline.color}`}>
+                                {deadline.label}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Entregue</span>
+                            )}
+                          </td>
+                        )}
+                        <td className="p-3 hidden md:table-cell text-muted-foreground">
+                          {new Date(order.createdAt).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-1">
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            {isAdmin && (
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(order.id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -179,8 +250,20 @@ const Orders = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div><span className="text-muted-foreground">Aluno:</span><br />{selectedOrder.studentName}</div>
                 <div><span className="text-muted-foreground">Turma:</span><br />{selectedOrder.grade}</div>
-                <div><span className="text-muted-foreground">Responsável:</span><br />{selectedOrder.responsibleName}</div>
-                <div><span className="text-muted-foreground">Telefone:</span><br />{selectedOrder.phone}</div>
+                {selectedOrder.responsibleName && <div><span className="text-muted-foreground">Responsável:</span><br />{selectedOrder.responsibleName}</div>}
+                {selectedOrder.phone && <div><span className="text-muted-foreground">Telefone:</span><br />{selectedOrder.phone}</div>}
+                <div>
+                  <span className="text-muted-foreground">Data do Pedido:</span><br />
+                  {new Date(selectedOrder.createdAt).toLocaleDateString('pt-BR')}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Prazo de Entrega:</span><br />
+                  {(() => {
+                    const d = new Date(selectedOrder.createdAt);
+                    d.setDate(d.getDate() + DELIVERY_DAYS);
+                    return d.toLocaleDateString('pt-BR');
+                  })()}
+                </div>
               </div>
               <div>
                 <p className="font-semibold mb-2">Itens do Pedido</p>

@@ -3,7 +3,18 @@ import { Order, OrderStatus } from '@/types';
 
 function loadOrders(): Order[] {
   const stored = localStorage.getItem('vc_orders');
-  return stored ? JSON.parse(stored) : [];
+  if (!stored) return [];
+  const orders = JSON.parse(stored);
+  // Migrate old orders without supplierTotalAmount
+  return orders.map((o: any) => ({
+    ...o,
+    supplierTotalAmount: o.supplierTotalAmount ?? (o.items?.reduce((s: number, i: any) => s + (i.supplierTotal || i.total * 0.8), 0) || 0),
+    items: o.items?.map((i: any) => ({
+      ...i,
+      supplierPrice: i.supplierPrice ?? Math.round(i.unitPrice * 0.8),
+      supplierTotal: i.supplierTotal ?? Math.round(i.total * 0.8),
+    })) || [],
+  }));
 }
 
 function persistOrders(orders: Order[]) {

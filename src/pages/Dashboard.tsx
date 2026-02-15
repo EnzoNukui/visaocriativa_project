@@ -1,8 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, DollarSign, Clock, CheckCircle, Package } from 'lucide-react';
+import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft } from 'lucide-react';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendente',
@@ -21,29 +20,28 @@ const Dashboard = () => {
   const { orders } = useOrders();
 
   const totalRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
+  const totalSupplierCost = orders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
+  const totalProfit = totalRevenue - totalSupplierCost;
   const pending = orders.filter(o => o.status === 'pending').length;
   const production = orders.filter(o => o.status === 'production').length;
-  const delivered = orders.filter(o => o.status === 'delivered').length;
 
   const recentOrders = orders.slice(0, 8);
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">
-          Olá, {user?.name}!
-        </h2>
+        <h2 className="text-2xl font-bold text-foreground">Olá, {user?.name}!</h2>
         <p className="text-muted-foreground">Resumo geral do sistema</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <Card>
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total de Pedidos</p>
+              <p className="text-xs text-muted-foreground">Total Pedidos</p>
               <p className="text-2xl font-bold">{orders.length}</p>
             </div>
           </CardContent>
@@ -54,10 +52,30 @@ const Dashboard = () => {
               <DollarSign className="w-5 h-5 text-green-700" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Receita Total</p>
-              <p className="text-2xl font-bold">
-                R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
+              <p className="text-xs text-muted-foreground">Receita (Escola)</p>
+              <p className="text-xl font-bold">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-blue-700" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Custo Fornecedor</p>
+              <p className="text-xl font-bold">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-green-700" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Lucro (Diferença)</p>
+              <p className="text-xl font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
@@ -67,7 +85,7 @@ const Dashboard = () => {
               <Clock className="w-5 h-5 text-yellow-700" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Pendentes</p>
+              <p className="text-xs text-muted-foreground">Pendentes</p>
               <p className="text-2xl font-bold">{pending}</p>
             </div>
           </CardContent>
@@ -78,14 +96,13 @@ const Dashboard = () => {
               <Package className="w-5 h-5 text-blue-700" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Em Produção</p>
+              <p className="text-xs text-muted-foreground">Em Produção</p>
               <p className="text-2xl font-bold">{production}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent orders */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Pedidos Recentes</CardTitle>
@@ -112,17 +129,13 @@ const Dashboard = () => {
                       <td className="py-3 pr-4 font-medium">{order.orderNumber}</td>
                       <td className="py-3 pr-4">{order.studentName}</td>
                       <td className="py-3 pr-4">{order.grade}</td>
-                      <td className="py-3 pr-4">
-                        R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
+                      <td className="py-3 pr-4">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="py-3 pr-4">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
                           {statusLabels[order.status]}
                         </span>
                       </td>
-                      <td className="py-3 text-muted-foreground">
-                        {new Date(order.createdAt).toLocaleDateString('pt-BR')}
-                      </td>
+                      <td className="py-3 text-muted-foreground">{new Date(order.createdAt).toLocaleDateString('pt-BR')}</td>
                     </tr>
                   ))}
                 </tbody>
