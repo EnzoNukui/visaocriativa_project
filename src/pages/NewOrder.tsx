@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOrders } from '@/hooks/useOrders';
-import { getProducts } from '@/data/products';
-import { OrderItem } from '@/types';
+import { useOrders, OrderItem } from '@/hooks/useOrders';
+import { useProducts } from '@/hooks/useProducts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,19 +10,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, ShoppingCart } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const NewOrder = () => {
   const { user } = useAuth();
   const { addOrder } = useOrders();
+  const { products, loading: productsLoading } = useProducts();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const products = getProducts();
 
   const [studentName, setStudentName] = useState('');
   const [grade, setGrade] = useState('');
   const [responsibleName, setResponsibleName] = useState('');
   const [phone, setPhone] = useState('');
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   const [selProduct, setSelProduct] = useState('');
   const [selSize, setSelSize] = useState('');
@@ -50,14 +51,12 @@ const NewOrder = () => {
     setSelQty(1);
   };
 
-  const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
-  };
+  const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
 
   const totalAmount = items.reduce((s, i) => s + i.total, 0);
   const supplierTotalAmount = items.reduce((s, i) => s + i.supplierTotal, 0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentName.trim() || !grade.trim()) {
       toast({ title: 'Erro', description: 'Nome do aluno e turma são obrigatórios.', variant: 'destructive' });
@@ -67,7 +66,8 @@ const NewOrder = () => {
       toast({ title: 'Erro', description: 'Adicione pelo menos um item ao pedido.', variant: 'destructive' });
       return;
     }
-    addOrder({
+    setSubmitting(true);
+    await addOrder({
       studentName,
       grade,
       responsibleName,
@@ -82,6 +82,10 @@ const NewOrder = () => {
     navigate('/orders');
   };
 
+  if (productsLoading) {
+    return <div className="max-w-3xl mx-auto space-y-6"><Skeleton className="h-8 w-48" /><Skeleton className="h-64" /></div>;
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -91,9 +95,7 @@ const NewOrder = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Dados do Aluno</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">Dados do Aluno</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Nome do Aluno *</Label>
@@ -115,9 +117,7 @@ const NewOrder = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Itens do Pedido</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">Itens do Pedido</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3 items-end">
               <div className="flex-1 space-y-2">
@@ -188,16 +188,14 @@ const NewOrder = () => {
 
             <div className="flex justify-between items-center pt-3 border-t">
               <span className="font-semibold">Total do Pedido</span>
-              <span className="text-xl font-bold text-primary">
-                R$ {totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </span>
+              <span className="text-xl font-bold text-primary">R$ {totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
           </CardContent>
         </Card>
 
-        <Button type="submit" className="w-full" size="lg" disabled={items.length === 0}>
+        <Button type="submit" className="w-full" size="lg" disabled={items.length === 0 || submitting}>
           <ShoppingCart className="w-4 h-4 mr-2" />
-          Finalizar Pedido
+          {submitting ? 'Salvando...' : 'Finalizar Pedido'}
         </Button>
       </form>
     </div>

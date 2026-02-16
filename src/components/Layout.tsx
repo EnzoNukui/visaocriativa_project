@@ -29,19 +29,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     { to: '/products', label: 'Produtos', icon: Package, show: isAdmin },
   ].filter(i => i.show);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
   return (
     <div className="min-h-screen flex bg-muted">
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform lg:translate-x-0 lg:static',
@@ -99,7 +97,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </aside>
 
-      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-30 bg-background border-b px-4 py-3 flex items-center gap-3 lg:px-6">
           <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>

@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendente',
@@ -17,7 +18,7 @@ const statusColors: Record<string, string> = {
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const { orders } = useOrders();
+  const { orders, loading } = useOrders();
 
   const totalRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
   const totalSupplierCost = orders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
@@ -28,6 +29,17 @@ const Dashboard = () => {
   const production = orders.filter(o => o.status === 'production').length;
 
   const recentOrders = orders.slice(0, 8);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

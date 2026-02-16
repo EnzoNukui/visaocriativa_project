@@ -1,18 +1,13 @@
 import { useState } from 'react';
-import { getProducts, saveProducts } from '@/data/products';
-import { Product, ProductVariant } from '@/types';
+import { useProducts, Product, ProductVariant } from '@/hooks/useProducts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Save, PlusCircle, Trash2, Plus, X, Pencil } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { PlusCircle, Trash2, Plus, X, Pencil } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const VariantForm = ({
   variants,
@@ -53,7 +48,7 @@ const VariantForm = ({
 );
 
 const Products = () => {
-  const [products, setProducts] = useState<Product[]>(getProducts);
+  const { products, loading, addProduct, updateProduct, deleteProduct } = useProducts();
   const { toast } = useToast();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -64,30 +59,21 @@ const Products = () => {
   const [editName, setEditName] = useState('');
   const [editVariants, setEditVariants] = useState<ProductVariant[]>([]);
 
-  const handleSave = () => {
-    saveProducts(products);
-    toast({ title: 'Salvo!', description: 'A tabela de preços foi atualizada.' });
+  const handleDeleteProduct = async (id: string) => {
+    await deleteProduct(id);
+    toast({ title: 'Produto removido!' });
   };
 
-  const handleDeleteProduct = (id: string) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
-  };
-
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!newName.trim() || newVariants.some(v => !v.size.trim())) {
       toast({ title: 'Erro', description: 'Preencha o nome e todos os tamanhos.', variant: 'destructive' });
       return;
     }
-    const newProduct: Product = {
-      id: crypto.randomUUID(),
-      name: newName.trim(),
-      variants: newVariants,
-    };
-    setProducts(prev => [...prev, newProduct]);
+    await addProduct(newName.trim(), newVariants);
     setNewName('');
     setNewVariants([{ size: '', price: 0, supplierPrice: 0 }]);
     setShowAddDialog(false);
-    toast({ title: 'Produto adicionado!', description: `${newProduct.name} foi adicionado ao catálogo.` });
+    toast({ title: 'Produto adicionado!' });
   };
 
   const updateNewVariant = (index: number, field: keyof ProductVariant, value: string | number) => {
@@ -104,17 +90,19 @@ const Products = () => {
     setEditVariants(prev => prev.map((v, i) => i === index ? { ...v, [field]: value } : v));
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingProduct || !editName.trim() || editVariants.some(v => !v.size.trim())) {
       toast({ title: 'Erro', description: 'Preencha o nome e todos os tamanhos.', variant: 'destructive' });
       return;
     }
-    setProducts(prev =>
-      prev.map(p => p.id === editingProduct.id ? { ...p, name: editName.trim(), variants: editVariants } : p)
-    );
+    await updateProduct(editingProduct.id, editName.trim(), editVariants);
     setEditingProduct(null);
-    toast({ title: 'Produto atualizado!', description: `${editName} foi atualizado.` });
+    toast({ title: 'Produto atualizado!' });
   };
+
+  if (loading) {
+    return <div className="space-y-4"><Skeleton className="h-8 w-48" /><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-48" />)}</div></div>;
+  }
 
   return (
     <div className="space-y-4">
@@ -123,16 +111,9 @@ const Products = () => {
           <h2 className="text-xl font-bold">Catálogo de Produtos</h2>
           <p className="text-sm text-muted-foreground">Gerencie produtos, preços e margens</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowAddDialog(true)}>
-            <PlusCircle className="w-4 h-4 mr-2" />
-            Novo Produto
-          </Button>
-          <Button onClick={handleSave}>
-            <Save className="w-4 h-4 mr-2" />
-            Salvar
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => setShowAddDialog(true)}>
+          <PlusCircle className="w-4 h-4 mr-2" />Novo Produto
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -141,29 +122,20 @@ const Products = () => {
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-base">{product.name}</CardTitle>
               <div className="flex gap-1">
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditDialog(product)}>
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDeleteProduct(product.id)}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditDialog(product)}><Pencil className="w-3.5 h-3.5" /></Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDeleteProduct(product.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground mb-2">
-                <span>Tam.</span>
-                <span>Escola (R$)</span>
-                <span>Fornec. (R$)</span>
-                <span>Margem</span>
+                <span>Tam.</span><span>Escola (R$)</span><span>Fornec. (R$)</span><span>Margem</span>
               </div>
               {product.variants.map(variant => (
                 <div key={variant.size} className="grid grid-cols-4 gap-2 items-center mb-2">
                   <span className="text-sm font-medium bg-muted rounded px-2 py-1 text-center">{variant.size}</span>
                   <span className="text-sm text-center">R$ {variant.price.toFixed(2)}</span>
                   <span className="text-sm text-center">R$ {variant.supplierPrice.toFixed(2)}</span>
-                  <span className="text-sm font-medium text-center text-green-600">
-                    R$ {(variant.price - variant.supplierPrice).toFixed(2)}
-                  </span>
+                  <span className="text-sm font-medium text-center text-green-600">R$ {(variant.price - variant.supplierPrice).toFixed(2)}</span>
                 </div>
               ))}
             </CardContent>
@@ -171,46 +143,23 @@ const Products = () => {
         ))}
       </div>
 
-      {/* Add product dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Novo Produto</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Novo Produto</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nome do Produto</Label>
-              <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: Bermuda Masculina" />
-            </div>
-            <VariantForm
-              variants={newVariants}
-              onUpdate={updateNewVariant}
-              onAdd={() => setNewVariants(prev => [...prev, { size: '', price: 0, supplierPrice: 0 }])}
-              onRemove={(i) => { if (newVariants.length > 1) setNewVariants(prev => prev.filter((_, idx) => idx !== i)); }}
-            />
+            <div className="space-y-2"><Label>Nome do Produto</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: Bermuda Masculina" /></div>
+            <VariantForm variants={newVariants} onUpdate={updateNewVariant} onAdd={() => setNewVariants(prev => [...prev, { size: '', price: 0, supplierPrice: 0 }])} onRemove={(i) => { if (newVariants.length > 1) setNewVariants(prev => prev.filter((_, idx) => idx !== i)); }} />
             <Button onClick={handleAddProduct} className="w-full">Adicionar Produto</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Edit product dialog */}
       <Dialog open={!!editingProduct} onOpenChange={() => setEditingProduct(null)}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Editar Produto</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Editar Produto</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nome do Produto</Label>
-              <Input value={editName} onChange={e => setEditName(e.target.value)} />
-            </div>
-            <VariantForm
-              variants={editVariants}
-              onUpdate={updateEditVariant}
-              onAdd={() => setEditVariants(prev => [...prev, { size: '', price: 0, supplierPrice: 0 }])}
-              onRemove={(i) => { if (editVariants.length > 1) setEditVariants(prev => prev.filter((_, idx) => idx !== i)); }}
-              showDifference
-            />
+            <div className="space-y-2"><Label>Nome do Produto</Label><Input value={editName} onChange={e => setEditName(e.target.value)} /></div>
+            <VariantForm variants={editVariants} onUpdate={updateEditVariant} onAdd={() => setEditVariants(prev => [...prev, { size: '', price: 0, supplierPrice: 0 }])} onRemove={(i) => { if (editVariants.length > 1) setEditVariants(prev => prev.filter((_, idx) => idx !== i)); }} showDifference />
             <Button onClick={handleSaveEdit} className="w-full">Salvar Alterações</Button>
           </div>
         </DialogContent>

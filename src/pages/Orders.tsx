@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOrders } from '@/hooks/useOrders';
-import { getProducts } from '@/data/products';
+import { useOrders, Order } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,13 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft } from 'lucide-react';
-import { OrderStatus, Order } from '@/types';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendente',
@@ -31,7 +25,7 @@ const statusColors: Record<string, string> = {
 
 const DELIVERY_DAYS = 20;
 
-function getDeadlineStatus(createdAt: string): { label: string; color: string; deadlineDate: Date } {
+function getDeadlineStatus(createdAt: string) {
   const created = new Date(createdAt);
   const deadline = new Date(created);
   deadline.setDate(deadline.getDate() + DELIVERY_DAYS);
@@ -45,7 +39,7 @@ function getDeadlineStatus(createdAt: string): { label: string; color: string; d
 
 const Orders = () => {
   const { user } = useAuth();
-  const { orders, updateStatus, deleteOrder } = useOrders();
+  const { orders, loading, updateStatus, deleteOrder } = useOrders();
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
   const isSupplier = user?.role === 'supplier';
@@ -61,81 +55,58 @@ const Orders = () => {
     return matchSearch && matchStatus;
   });
 
-  const handleStatusChange = (id: string, status: OrderStatus) => {
-    updateStatus(id, status);
+  const handleStatusChange = async (id: string, status: Order['status']) => {
+    await updateStatus(id, status);
     toast({ title: 'Status atualizado', description: `Pedido marcado como "${statusLabels[status]}"` });
   };
 
-  const handleDelete = (id: string) => {
-    deleteOrder(id);
+  const handleDelete = async (id: string) => {
+    await deleteOrder(id);
     toast({ title: 'Pedido excluído', description: 'O pedido foi removido com sucesso.' });
   };
 
-  // Financial summary for supplier
   const totalSchool = orders.reduce((s, o) => s + o.totalAmount, 0);
   const totalSupplier = orders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
   const totalProfit = totalSchool - totalSupplier;
   const pendingProfit = orders.filter(o => o.status === 'pending').reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
   const settledProfit = totalProfit - pendingProfit;
 
+  if (loading) {
+    return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64" /></div>;
+  }
+
   return (
     <div className="space-y-4">
-      {/* Supplier Financial Summary */}
       {isSupplier && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Vendido (Escola)</p>
-                <p className="text-lg font-bold">R$ {totalSchool.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><DollarSign className="w-5 h-5 text-primary" /></div>
+              <div><p className="text-xs text-muted-foreground">Total Vendido (Escola)</p><p className="text-lg font-bold">R$ {totalSchool.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-blue-700" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Custo Fornecedor</p>
-                <p className="text-lg font-bold">R$ {totalSupplier.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><DollarSign className="w-5 h-5 text-blue-700" /></div>
+              <div><p className="text-xs text-muted-foreground">Custo Fornecedor</p><p className="text-lg font-bold">R$ {totalSupplier.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-green-700" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Diferença (Lucro)</p>
-                <p className="text-lg font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center"><TrendingUp className="w-5 h-5 text-green-700" /></div>
+              <div><p className="text-xs text-muted-foreground">Diferença (Lucro)</p><p className="text-lg font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
             </CardContent>
           </Card>
           <Card className="border-yellow-300 bg-yellow-50/50">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center">
-                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Pendente Repasse</p>
-                <p className="text-lg font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
+              <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center"><ArrowRightLeft className="w-5 h-5 text-yellow-700" /></div>
+              <div><p className="text-xs text-muted-foreground font-medium">Pendente Repasse</p><p className="text-lg font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
             </CardContent>
           </Card>
           <Card className="border-green-300 bg-green-50/50">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-green-700" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Lucro Repassado</p>
-                <p className="text-lg font-bold text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center"><DollarSign className="w-5 h-5 text-green-700" /></div>
+              <div><p className="text-xs text-muted-foreground font-medium">Lucro Repassado</p><p className="text-lg font-bold text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
             </CardContent>
           </Card>
         </div>
@@ -147,12 +118,7 @@ const Orders = () => {
           <p className="text-sm text-muted-foreground">{filtered.length} pedido(s) encontrado(s)</p>
         </div>
         {isAdmin && (
-          <Button asChild>
-            <Link to="/orders/new">
-              <PlusCircle className="w-4 h-4 mr-2" />
-              Novo Pedido
-            </Link>
-          </Button>
+          <Button asChild><Link to="/orders/new"><PlusCircle className="w-4 h-4 mr-2" />Novo Pedido</Link></Button>
         )}
       </div>
 
@@ -202,7 +168,7 @@ const Orders = () => {
                         <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                         <td className="p-3">
                           {isSupplier ? (
-                            <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v as OrderStatus)}>
+                            <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v as Order['status'])}>
                               <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="pending">Pendente</SelectItem>
@@ -218,9 +184,7 @@ const Orders = () => {
                         </td>
                         <td className="p-3 hidden md:table-cell">
                           {order.status !== 'delivered' ? (
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${deadline.color}`}>
-                              {deadline.label}
-                            </span>
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${deadline.color}`}>{deadline.label}</span>
                           ) : (
                             <span className="text-xs text-muted-foreground">Entregue</span>
                           )}
@@ -253,7 +217,6 @@ const Orders = () => {
         </CardContent>
       </Card>
 
-      {/* Order detail dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -266,31 +229,16 @@ const Orders = () => {
                 <div><span className="text-muted-foreground">Turma:</span><br />{selectedOrder.grade}</div>
                 {selectedOrder.responsibleName && <div><span className="text-muted-foreground">Responsável:</span><br />{selectedOrder.responsibleName}</div>}
                 {selectedOrder.phone && <div><span className="text-muted-foreground">Telefone:</span><br />{selectedOrder.phone}</div>}
-                <div>
-                  <span className="text-muted-foreground">Data do Pedido:</span><br />
-                  {new Date(selectedOrder.createdAt).toLocaleDateString('pt-BR')}
-                </div>
+                <div><span className="text-muted-foreground">Data do Pedido:</span><br />{new Date(selectedOrder.createdAt).toLocaleDateString('pt-BR')}</div>
                 <div>
                   <span className="text-muted-foreground">Prazo de Entrega:</span><br />
-                  {(() => {
-                    const d = new Date(selectedOrder.createdAt);
-                    d.setDate(d.getDate() + DELIVERY_DAYS);
-                    return d.toLocaleDateString('pt-BR');
-                  })()}
+                  {(() => { const d = new Date(selectedOrder.createdAt); d.setDate(d.getDate() + DELIVERY_DAYS); return d.toLocaleDateString('pt-BR'); })()}
                 </div>
               </div>
               <div>
                 <p className="font-semibold mb-2">Itens do Pedido</p>
                 <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="text-left pb-1">Produto</th>
-                      <th className="text-left pb-1">Tam.</th>
-                      <th className="text-right pb-1">Qtd.</th>
-                      <th className="text-right pb-1">Unit.</th>
-                      <th className="text-right pb-1">Subtotal</th>
-                    </tr>
-                  </thead>
+                  <thead><tr className="border-b text-muted-foreground"><th className="text-left pb-1">Produto</th><th className="text-left pb-1">Tam.</th><th className="text-right pb-1">Qtd.</th><th className="text-right pb-1">Unit.</th><th className="text-right pb-1">Subtotal</th></tr></thead>
                   <tbody>
                     {selectedOrder.items.map((item, i) => (
                       <tr key={i} className="border-b last:border-0">
@@ -306,9 +254,7 @@ const Orders = () => {
               </div>
               <div className="flex justify-between items-center pt-2 border-t font-semibold">
                 <span>Total</span>
-                <span className="text-primary text-lg">
-                  R$ {selectedOrder.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
+                <span className="text-primary text-lg">R$ {selectedOrder.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           )}
