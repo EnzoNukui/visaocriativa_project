@@ -1,55 +1,134 @@
-import { useState, useCallback } from 'react';
-import { Order, OrderStatus } from '@/types';
+import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
-function loadOrders(): Order[] {
-  const stored = localStorage.getItem('vc_orders');
-  if (!stored) return [];
-  const orders = JSON.parse(stored);
-  // Migrate old orders without supplierTotalAmount
-  return orders.map((o: any) => ({
-    ...o,
-    supplierTotalAmount: o.supplierTotalAmount ?? (o.items?.reduce((s: number, i: any) => s + (i.supplierTotal || i.total * 0.8), 0) || 0),
-    items: o.items?.map((i: any) => ({
-      ...i,
-      supplierPrice: i.supplierPrice ?? Math.round(i.unitPrice * 0.8),
-      supplierTotal: i.supplierTotal ?? Math.round(i.total * 0.8),
-    })) || [],
-  }));
+export interface OrderItem {
+  id?: string;
+  productId: string;
+  productName: string;
+  size: string;
+  quantity: number;
+  unitPrice: number;
+  supplierPrice: number;
+  total: number;
+  supplierTotal: number;
 }
 
-function persistOrders(orders: Order[]) {
-  localStorage.setItem('vc_orders', JSON.stringify(orders));
+export interface Order {
+  id: string;
+  orderNumber: string;
+  studentName: string;
+  grade: string;
+  responsibleName: string;
+  phone: string;
+  items: OrderItem[];
+  totalAmount: number;
+  supplierTotalAmount: number;
+  status: 'pending' | 'production' | 'delivered';
+  createdAt: string;
+  createdBy: string;
 }
 
 export function useOrders() {
-  const [orders, setOrders] = useState<Order[]>(loadOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { session } = useAuth();
 
-  const addOrder = useCallback((order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => {
-    const newOrder: Order = {
-      ...order,
-      id: crypto.randomUUID(),
-      orderNumber: `VC-${String(loadOrders().length + 1).padStart(4, '0')}`,
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [newOrder, ...loadOrders()];
-    persistOrders(updated);
-    setOrders(updated);
-    return newOrder;
+  const fetchOrders = useCallback(async () => {
+    const { data: ordersData } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!ordersData) { setOrders([]); setLoading(false); return; }
+
+    const orderIds = ordersData.map(o => o.id);
+    const { data: itemsData } = await supabase
+      .from('order_items')
+      .select('*')
+      .in('order_id', orderIds);
+
+    const mapped: Order[] = ordersData.map(o => ({
+      id: o.id,
+      orderNumber: o.order_number,
+      studentName: o.student_name,
+      grade: o.grade,
+      responsibleName: o.responsible_name,
+      phone: o.phone,
+      totalAmount: Number(o.total_amount),
+      supplierTotalAmount: Number(o.supplier_total_amount),
+      status: o.status as Order['status'],
+      createdAt: o.created_at,
+      createdBy: o.created_by,
+      items: (itemsData || [])
+        .filter(i => i.order_id === o.id)
+        .map(i => ({
+          id: i.id,
+          productId: i.product_id,
+          productName: i.product_name,
+          size: i.size,
+          quantity: i.quantity,
+          unitPrice: Number(i.unit_price),
+          supplierPrice: Number(i.supplier_price),
+          total: Number(i.total),
+          supplierTotal: Number(i.supplier_total),
+        })),
+    }));
+
+    setOrders(mapped);
+    setLoading(false);
   }, []);
 
-  const updateStatus = useCallback((id: string, status: OrderStatus) => {
-    const updated = loadOrders().map(o => o.id === id ? { ...o, status } : o);
-    persistOrders(updated);
-    setOrders(updated);
-  }, []);
+  useEffect(() => {
+    if (session) fetchOrders();
+  }, [session, fetchOrders]);
 
-  const deleteOrder = useCallback((id: string) => {
-    const updated = loadOrders().filter(o => o.id !== id);
-    persistOrders(updated);
-    setOrders(updated);
-  }, []);
+  const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => {
+    const { data, error } = await supabase
+      .from('orders')
+      .insert({
+        student_name: order.studentName,
+        grade: order.grade,
+        responsible_name: order.responsibleName,
+        phone: order.phone,
+        total_amount: order.totalAmount,
+        supplier_total_amount: order.supplierTotalAmount,
+        status: order.status,
+        created_by: order.createdBy,
+        order_number: 'TEMP', // trigger will override
+      })
+      .select()
+      .single();
 
-  const refresh = useCallback(() => setOrders(loadOrders()), []);
+    if (error || !data) return null;
 
-  return { orders, addOrder, updateStatus, deleteOrder, refresh };
+    // Insert items
+    const itemsToInsert = order.items.map(i => ({
+      order_id: data.id,
+      product_id: i.productId,
+      product_name: i.productName,
+      size: i.size,
+      quantity: i.quantity,
+      unit_price: i.unitPrice,
+      supplier_price: i.supplierPrice,
+      total: i.total,
+      supplier_total: i.supplierTotal,
+    }));
+
+    await supabase.from('order_items').insert(itemsToInsert);
+    await fetchOrders();
+    return data;
+  }, [fetchOrders]);
+
+  const updateStatus = useCallback(async (id: string, status: Order['status']) => {
+    await supabase.from('orders').update({ status }).eq('id', id);
+    await fetchOrders();
+  }, [fetchOrders]);
+
+  const deleteOrder = useCallback(async (id: string) => {
+    await supabase.from('orders').delete().eq('id', id);
+    await fetchOrders();
+  }, [fetchOrders]);
+
+  return { orders, loading, addOrder, updateStatus, deleteOrder, refresh: fetchOrders };
 }
