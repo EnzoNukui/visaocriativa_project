@@ -1,23 +1,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users as UsersIcon, Shield, ShieldCheck } from 'lucide-react';
 
-interface UserWithRole {
+interface UserWithRoles {
   userId: string;
   name: string;
   email: string;
-  role: 'admin' | 'supplier' | null;
+  roles: ('admin' | 'supplier')[];
 }
 
 const Users = () => {
-  const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const { toast } = useToast();
@@ -39,14 +38,19 @@ const Users = () => {
       .from('user_roles')
       .select('user_id, role');
 
-    const roleMap = new Map((roles || []).map(r => [r.user_id, r.role as 'admin' | 'supplier']));
+    const roleMap = new Map<string, ('admin' | 'supplier')[]>();
+    (roles || []).forEach(r => {
+      const existing = roleMap.get(r.user_id) || [];
+      existing.push(r.role as 'admin' | 'supplier');
+      roleMap.set(r.user_id, existing);
+    });
 
     setUsers(
       (profiles || []).map(p => ({
         userId: p.user_id,
         name: p.name,
         email: p.email,
-        role: roleMap.get(p.user_id) || null,
+        roles: roleMap.get(p.user_id) || [],
       }))
     );
     setLoading(false);
@@ -54,19 +58,13 @@ const Users = () => {
 
   useEffect(() => { fetchUsers(); }, []);
 
-  const handleRoleChange = async (userId: string, newRole: string) => {
+  const handleToggleRole = async (userId: string, role: 'admin' | 'supplier', checked: boolean) => {
     setSaving(userId);
     try {
-      if (newRole === 'none') {
-        await supabase.from('user_roles').delete().eq('user_id', userId);
+      if (checked) {
+        await supabase.from('user_roles').insert([{ user_id: userId, role }]);
       } else {
-        const typedRole = newRole as 'admin' | 'supplier';
-        const existing = users.find(u => u.userId === userId);
-        if (existing?.role) {
-          await supabase.from('user_roles').update({ role: typedRole }).eq('user_id', userId);
-        } else {
-          await supabase.from('user_roles').insert([{ user_id: userId, role: typedRole }]);
-        }
+        await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role);
       }
       await fetchUsers();
       toast({ title: 'Papel atualizado com sucesso!' });
@@ -91,7 +89,7 @@ const Users = () => {
         <h2 className="text-xl font-bold flex items-center gap-2">
           <UsersIcon className="w-5 h-5" /> Gerenciar Usuários
         </h2>
-        <p className="text-sm text-muted-foreground">Atribua papéis aos usuários cadastrados</p>
+        <p className="text-sm text-muted-foreground">Atribua papéis aos usuários cadastrados (múltiplos papéis permitidos)</p>
       </div>
 
       <Card>
@@ -104,8 +102,9 @@ const Users = () => {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>E-mail</TableHead>
-                <TableHead>Papel Atual</TableHead>
-                <TableHead className="w-48">Alterar Papel</TableHead>
+                <TableHead>Papéis Atuais</TableHead>
+                <TableHead>Admin</TableHead>
+                <TableHead>Fornecedor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -114,35 +113,36 @@ const Users = () => {
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell className="text-muted-foreground">{user.email}</TableCell>
                   <TableCell>
-                    {user.role === 'admin' && (
-                      <Badge variant="default" className="gap-1">
-                        <ShieldCheck className="w-3 h-3" /> Administrador
-                      </Badge>
-                    )}
-                    {user.role === 'supplier' && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Shield className="w-3 h-3" /> Fornecedor
-                      </Badge>
-                    )}
-                    {!user.role && (
-                      <Badge variant="outline">Sem papel</Badge>
-                    )}
+                    <div className="flex gap-1 flex-wrap">
+                      {user.roles.includes('admin') && (
+                        <Badge variant="default" className="gap-1">
+                          <ShieldCheck className="w-3 h-3" /> Admin
+                        </Badge>
+                      )}
+                      {user.roles.includes('supplier') && (
+                        <Badge variant="secondary" className="gap-1">
+                          <Shield className="w-3 h-3" /> Fornecedor
+                        </Badge>
+                      )}
+                      {user.roles.length === 0 && <Badge variant="outline">Sem papel</Badge>}
+                      {user.roles.length === 2 && (
+                        <Badge variant="outline" className="ml-1 text-[10px]">Master</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={user.role || 'none'}
-                      onValueChange={(val) => handleRoleChange(user.userId, val)}
+                    <Checkbox
+                      checked={user.roles.includes('admin')}
+                      onCheckedChange={(checked) => handleToggleRole(user.userId, 'admin', !!checked)}
                       disabled={saving === user.userId}
-                    >
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sem papel</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                        <SelectItem value="supplier">Fornecedor</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Checkbox
+                      checked={user.roles.includes('supplier')}
+                      onCheckedChange={(checked) => handleToggleRole(user.userId, 'supplier', !!checked)}
+                      disabled={saving === user.userId}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

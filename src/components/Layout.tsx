@@ -11,17 +11,19 @@ import {
   GraduationCap,
   Menu,
   X,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, switchRole } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.activeRole === 'admin';
+  const hasMultipleRoles = (user?.roles.length || 0) > 1;
 
   const navItems = [
     { to: '/dashboard', label: 'Painel', icon: LayoutDashboard, show: true },
@@ -34,6 +36,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const handleLogout = async () => {
     await logout();
     navigate('/');
+  };
+
+  const handleSwitchRole = () => {
+    if (!user) return;
+    const newRole = user.activeRole === 'admin' ? 'supplier' : 'admin';
+    switchRole(newRole);
+    navigate('/dashboard');
   };
 
   return (
@@ -84,9 +93,21 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           <div className="px-3 py-2 mb-2">
             <p className="text-xs font-medium truncate">{user?.name}</p>
             <p className="text-[11px] text-sidebar-foreground/50">
-              {user?.role === 'admin' ? 'Administrador' : 'Fornecedor'}
+              {user?.activeRole === 'admin' ? 'Administrador' : 'Fornecedor'}
+              {hasMultipleRoles && ' (Master)'}
             </p>
           </div>
+          {hasMultipleRoles && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSwitchRole}
+              className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 mb-1"
+            >
+              <ArrowLeftRight className="w-4 h-4 mr-2" />
+              Trocar para {user?.activeRole === 'admin' ? 'Fornecedor' : 'Admin'}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"

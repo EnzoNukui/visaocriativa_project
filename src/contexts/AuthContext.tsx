@@ -8,7 +8,8 @@ export interface AppUser {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  roles: UserRole[];
+  activeRole: UserRole;
 }
 
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signup: (email: string, password: string, name: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
+  switchRole: (role: UserRole) => void;
   isAuthenticated: boolean;
 }
 
@@ -30,19 +32,22 @@ async function fetchAppUser(supaUser: SupabaseUser): Promise<AppUser | null> {
     .eq('user_id', supaUser.id)
     .single();
 
-  const { data: roleRow } = await supabase
+  const { data: roleRows } = await supabase
     .from('user_roles')
     .select('role')
-    .eq('user_id', supaUser.id)
-    .single();
+    .eq('user_id', supaUser.id);
 
   if (!profile) return null;
+
+  const roles = (roleRows || []).map(r => r.role as UserRole);
+  const activeRole: UserRole = roles.includes('admin') ? 'admin' : roles[0] || 'supplier';
 
   return {
     id: supaUser.id,
     name: profile.name,
     email: profile.email,
-    role: (roleRow?.role as UserRole) || 'admin',
+    roles,
+    activeRole,
   };
 }
 
@@ -55,7 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session?.user) {
-        // Use setTimeout to avoid potential deadlocks with Supabase auth
         setTimeout(async () => {
           const appUser = await fetchAppUser(session.user);
           setUser(appUser);
@@ -107,8 +111,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
   }, []);
 
+  const switchRole = useCallback((role: UserRole) => {
+    setUser(prev => prev && prev.roles.includes(role) ? { ...prev, activeRole: role } : prev);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, signup, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, session, loading, login, signup, logout, switchRole, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

@@ -76,6 +76,9 @@ const Login = () => {
                     <LogIn className="w-4 h-4 mr-2" />
                     {loading ? 'Entrando...' : 'Entrar'}
                   </Button>
+                  <a href="/forgot-password" className="block text-center text-sm text-muted-foreground hover:text-foreground">
+                    Esqueci minha senha
+                  </a>
                 </form>
               </TabsContent>
               <TabsContent value="signup" className="mt-0">

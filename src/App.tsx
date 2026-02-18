@@ -10,6 +10,8 @@ import Orders from "./pages/Orders";
 import NewOrder from "./pages/NewOrder";
 import Products from "./pages/Products";
 import Users from "./pages/Users";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
 
@@ -19,7 +21,7 @@ const ProtectedRoute = ({ children, adminOnly = false }: { children: React.React
   const { user, isAuthenticated, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!isAuthenticated) return <Navigate to="/" replace />;
-  if (adminOnly && user?.role !== 'admin') return <Navigate to="/dashboard" replace />;
+  if (adminOnly && user?.activeRole !== 'admin') return <Navigate to="/dashboard" replace />;
   return <Layout>{children}</Layout>;
 };
 
@@ -39,6 +41,8 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<LoginRoute />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
             <Route path="/orders/new" element={<ProtectedRoute adminOnly><NewOrder /></ProtectedRoute>} />
