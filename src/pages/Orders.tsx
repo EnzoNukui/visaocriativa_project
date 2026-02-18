@@ -41,8 +41,8 @@ const Orders = () => {
   const { user } = useAuth();
   const { orders, loading, updateStatus, deleteOrder } = useOrders();
   const { toast } = useToast();
-  const isAdmin = user?.role === 'admin';
-  const isSupplier = user?.role === 'supplier';
+  const isAdmin = user?.activeRole === 'admin';
+  const isSupplier = user?.activeRole === 'supplier';
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
