@@ -6,6 +6,7 @@ import {
   ShoppingCart,
   PlusCircle,
   Package,
+  Users,
   LogOut,
   GraduationCap,
   Menu,
@@ -27,6 +28,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     { to: '/orders', label: 'Pedidos', icon: ShoppingCart, show: true },
     { to: '/orders/new', label: 'Novo Pedido', icon: PlusCircle, show: isAdmin },
     { to: '/products', label: 'Produtos', icon: Package, show: isAdmin },
+    { to: '/users', label: 'Usuários', icon: Users, show: isAdmin },
   ].filter(i => i.show);
 
   const handleLogout = async () => {
