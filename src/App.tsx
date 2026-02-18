@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import NewOrder from "./pages/NewOrder";
 import Products from "./pages/Products";
+import Users from "./pages/Users";
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
 
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
             <Route path="/orders/new" element={<ProtectedRoute adminOnly><NewOrder /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute adminOnly><Products /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
