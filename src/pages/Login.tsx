@@ -3,11 +3,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { GraduationCap, LogIn, UserPlus } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const Login = () => {
   const { login, signup } = useAuth();
@@ -16,6 +17,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [requestedRole, setRequestedRole] = useState('supplier');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -33,11 +35,14 @@ const Login = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const result = await signup(email, password, name);
+    const result = await signup(email, password, name, requestedRole);
     if (result.error) {
       toast({ title: 'Erro', description: result.error, variant: 'destructive' });
     } else {
-      toast({ title: 'Conta criada!', description: 'Verifique seu e-mail para confirmar o cadastro.' });
+      toast({ 
+        title: 'Conta criada!', 
+        description: 'Sua conta está aguardando aprovação pelo administrador. Você será notificado quando aprovada.' 
+      });
     }
     setLoading(false);
   };
@@ -95,13 +100,25 @@ const Login = () => {
                     <Label htmlFor="signup-password">Senha</Label>
                     <Input id="signup-password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" required minLength={6} />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Função desejada</Label>
+                    <Select value={requestedRole} onValueChange={setRequestedRole}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="supplier">Fornecedor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     <UserPlus className="w-4 h-4 mr-2" />
                     {loading ? 'Cadastrando...' : 'Criar Conta'}
                   </Button>
                 </form>
                 <p className="text-xs text-muted-foreground mt-3 text-center">
-                  Após cadastrar, um administrador precisará atribuir sua função (Admin ou Fornecedor).
+                  Após cadastrar, sua conta ficará pendente até aprovação pelo administrador.
                 </p>
               </TabsContent>
             </CardContent>

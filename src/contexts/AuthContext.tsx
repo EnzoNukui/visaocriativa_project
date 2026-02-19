@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 export type UserRole = 'admin' | 'supplier';
+export type UserStatus = 'pending' | 'active' | 'rejected' | 'suspended';
 
 export interface AppUser {
   id: string;
@@ -10,6 +11,8 @@ export interface AppUser {
   email: string;
   roles: UserRole[];
   activeRole: UserRole;
+  status: UserStatus;
+  isMaster: boolean;
 }
 
 interface AuthContextType {
@@ -17,7 +20,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
-  signup: (email: string, password: string, name: string) => Promise<{ error?: string }>;
+  signup: (email: string, password: string, name: string, requestedRole?: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   switchRole: (role: UserRole) => void;
   isAuthenticated: boolean;
@@ -28,7 +31,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 async function fetchAppUser(supaUser: SupabaseUser): Promise<AppUser | null> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name, email')
+    .select('name, email, status')
     .eq('user_id', supaUser.id)
     .single();
 
@@ -41,6 +44,7 @@ async function fetchAppUser(supaUser: SupabaseUser): Promise<AppUser | null> {
 
   const roles = (roleRows || []).map(r => r.role as UserRole);
   const activeRole: UserRole = roles.includes('admin') ? 'admin' : roles[0] || 'supplier';
+  const isMaster = roles.includes('admin') && roles.includes('supplier');
 
   return {
     id: supaUser.id,
@@ -48,6 +52,8 @@ async function fetchAppUser(supaUser: SupabaseUser): Promise<AppUser | null> {
     email: profile.email,
     roles,
     activeRole,
+    status: (profile.status as UserStatus) || 'pending',
+    isMaster,
   };
 }
 
@@ -62,6 +68,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         setTimeout(async () => {
           const appUser = await fetchAppUser(session.user);
+          // If user is not active, sign them out
+          if (appUser && appUser.status !== 'active') {
+            await supabase.auth.signOut();
+            setUser(null);
+            setSession(null);
+            setLoading(false);
+            return;
+          }
           setUser(appUser);
           setLoading(false);
         }, 0);
@@ -74,7 +88,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        fetchAppUser(session.user).then(appUser => {
+        fetchAppUser(session.user).then(async (appUser) => {
+          if (appUser && appUser.status !== 'active') {
+            await supabase.auth.signOut();
+            setUser(null);
+            setSession(null);
+            setLoading(false);
+            return;
+          }
           setUser(appUser);
           setLoading(false);
         });
@@ -87,17 +108,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
+    
+    // Check user status after login
+    if (data.user) {
+      const { data: statusData } = await supabase.rpc('get_user_status', { _user_id: data.user.id });
+      const status = statusData as string | null;
+      
+      if (!status || status === 'pending') {
+        await supabase.auth.signOut();
+        return { error: 'Sua conta está aguardando aprovação pelo administrador.' };
+      }
+      if (status === 'rejected') {
+        await supabase.auth.signOut();
+        return { error: 'Sua conta foi rejeitada. Entre em contato com o administrador.' };
+      }
+      if (status === 'suspended') {
+        await supabase.auth.signOut();
+        return { error: 'Sua conta está suspensa. Entre em contato com o administrador.' };
+      }
+    }
+    
     return {};
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, name: string) => {
+  const signup = useCallback(async (email: string, password: string, name: string, requestedRole?: string) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { name },
+        data: { name, requested_role: requestedRole || 'supplier' },
         emailRedirectTo: window.location.origin,
       },
     });
