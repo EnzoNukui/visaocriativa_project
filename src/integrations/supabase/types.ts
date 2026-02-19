@@ -162,24 +162,36 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
           email: string
           id: string
           name: string
+          requested_role: string | null
+          status: string
           user_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           email: string
           id?: string
           name: string
+          requested_role?: string | null
+          status?: string
           user_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           email?: string
           id?: string
           name?: string
+          requested_role?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: []
@@ -207,6 +219,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_status: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -214,6 +227,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_master_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "supplier"
