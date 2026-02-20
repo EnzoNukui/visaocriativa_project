@@ -9,6 +9,7 @@ import {
   Users,
   LogOut,
   GraduationCap,
+  HardDrive,
   Menu,
   X,
   ArrowLeftRight,
@@ -31,6 +32,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     { to: '/orders/new', label: 'Novo Pedido', icon: PlusCircle, show: isAdmin },
     { to: '/products', label: 'Produtos', icon: Package, show: isAdmin },
     { to: '/users', label: 'Usuários', icon: Users, show: isAdmin },
+    { to: '/backups', label: 'Backups', icon: HardDrive, show: isAdmin },
   ].filter(i => i.show);
 
   const handleLogout = async () => {

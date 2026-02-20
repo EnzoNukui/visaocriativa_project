@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      backup_history: {
+        Row: {
+          backup_type: string
+          created_at: string
+          created_by: string | null
+          file_path: string
+          file_size: number | null
+          id: string
+          month_ref: string | null
+        }
+        Insert: {
+          backup_type: string
+          created_at?: string
+          created_by?: string | null
+          file_path: string
+          file_size?: number | null
+          id?: string
+          month_ref?: string | null
+        }
+        Update: {
+          backup_type?: string
+          created_at?: string
+          created_by?: string | null
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          month_ref?: string | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           id: string
