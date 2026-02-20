@@ -10,6 +10,7 @@ import Orders from "./pages/Orders";
 import NewOrder from "./pages/NewOrder";
 import Products from "./pages/Products";
 import Users from "./pages/Users";
+import Backups from "./pages/Backups";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Layout from "./components/Layout";
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/orders/new" element={<ProtectedRoute adminOnly><NewOrder /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute adminOnly><Products /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
+            <Route path="/backups" element={<ProtectedRoute adminOnly><Backups /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
