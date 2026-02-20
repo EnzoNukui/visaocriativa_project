@@ -57,12 +57,6 @@ const Backups = () => {
   const handleReport = async () => {
     setGenerating('report');
     try {
-      const { data, error } = await supabase.functions.invoke('financial-report', {
-        body: null,
-        headers: {},
-      });
-      
-      // Use query params approach
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
