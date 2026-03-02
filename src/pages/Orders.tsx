@@ -7,11 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2, Search, Eye, CheckCircle } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PlusCircle, Trash2, Search, Eye, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 const DELIVERY_DAYS = 20;
+
+// Statuses that have generated financial commitment (cannot hard-delete)
+const FINANCIAL_STATUSES: OrderStatus[] = ['paid', 'in_production', 'ready', 'delivered'];
 
 function getDeadlineStatus(createdAt: string) {
   const created = new Date(createdAt);
@@ -37,9 +41,8 @@ const Orders = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-
-  // Filter: exclude cancelled from financial calculations
-  const activeOrders = orders.filter(o => o.status !== 'cancelled');
+  const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = orders.filter(o => {
     const matchSearch = o.studentName.toLowerCase().includes(search.toLowerCase()) ||
@@ -54,18 +57,60 @@ const Orders = () => {
     toast({ title: 'Status atualizado', description: `Pedido marcado como "${STATUS_LABELS[status]}"` });
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteOrder(id);
-    toast({ title: 'Pedido excluído', description: 'O pedido foi removido com sucesso.' });
+  const handleDeleteClick = (order: Order) => {
+    // If order is paid+ and repasse is completed, block deletion entirely
+    if (FINANCIAL_STATUSES.includes(order.status) && order.repasseCompleted) {
+      toast({
+        title: 'Exclusão bloqueada',
+        description: 'Este pedido possui repasse confirmado. Cancele-o em vez de excluir.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    // If order is paid+, warn to cancel instead
+    if (FINANCIAL_STATUSES.includes(order.status)) {
+      toast({
+        title: 'Não é possível excluir',
+        description: 'Pedidos pagos ou em andamento devem ser cancelados, não excluídos.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setDeleteTarget(order);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    await deleteOrder(deleteTarget.id);
+    toast({ title: 'Pedido excluído', description: `Pedido ${deleteTarget.orderNumber} removido.` });
+    setDeleteTarget(null);
+    setDeleting(false);
   };
 
   const handleRepasseToggle = async (order: Order) => {
-    const profit = order.totalAmount - order.supplierTotalAmount;
-    await updateRepasse(order.id, !order.repasseCompleted, profit);
+    // Only allow repasse on paid+ orders (not awaiting_payment or cancelled)
+    if (!FINANCIAL_STATUSES.includes(order.status)) {
+      toast({
+        title: 'Repasse indisponível',
+        description: 'O pedido precisa estar pago para confirmar repasse.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const repasseAmount = order.supplierTotalAmount || 0;
+    await updateRepasse(order.id, !order.repasseCompleted, repasseAmount);
     toast({
       title: order.repasseCompleted ? 'Repasse revertido' : 'Repasse confirmado',
-      description: order.repasseCompleted ? 'Repasse marcado como pendente.' : `Repasse de R$ ${profit.toFixed(2)} confirmado.`,
+      description: order.repasseCompleted
+        ? 'Repasse marcado como pendente.'
+        : `Repasse de R$ ${repasseAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} confirmado.`,
     });
+  };
+
+  // Can this order show the repasse button?
+  const canShowRepasse = (order: Order) => {
+    return FINANCIAL_STATUSES.includes(order.status) && order.status !== 'cancelled';
   };
 
   if (loading) {
@@ -114,6 +159,7 @@ const Orders = () => {
                     <th className="p-3 hidden md:table-cell">Turma</th>
                     <th className="p-3">Total</th>
                     <th className="p-3">Status</th>
+                    {!isAdmin && <th className="p-3 hidden md:table-cell">Repasse</th>}
                     <th className="p-3 hidden md:table-cell">Prazo</th>
                     <th className="p-3 hidden md:table-cell">Data</th>
                     <th className="p-3">Ações</th>
@@ -151,6 +197,26 @@ const Orders = () => {
                             </span>
                           )}
                         </td>
+                        {/* Supplier repasse column */}
+                        {!isAdmin && (
+                          <td className="p-3 hidden md:table-cell">
+                            {FINANCIAL_STATUSES.includes(order.status) ? (
+                              <div className="text-xs space-y-0.5">
+                                <span className={`font-medium ${order.repasseCompleted ? 'text-green-600' : 'text-yellow-600'}`}>
+                                  {order.repasseCompleted ? 'Confirmado' : 'Pendente'}
+                                </span>
+                                <p className="text-muted-foreground">
+                                  R$ {(order.supplierTotalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </p>
+                                {order.repasseCompleted && order.repasseDate && (
+                                  <p className="text-muted-foreground">{new Date(order.repasseDate).toLocaleDateString('pt-BR')}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        )}
                         <td className="p-3 hidden md:table-cell">
                           {order.status === 'delivered' || order.status === 'cancelled' ? (
                             <span className="text-xs text-muted-foreground">{STATUS_LABELS[order.status]}</span>
@@ -163,13 +229,13 @@ const Orders = () => {
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-1">
-                            {isAdmin && order.status !== 'cancelled' && (
+                            {isAdmin && canShowRepasse(order) && (
                               <Button
                                 size="icon"
                                 variant={order.repasseCompleted ? 'default' : 'ghost'}
                                 className={`h-8 w-8 ${order.repasseCompleted ? 'bg-green-600 hover:bg-green-700' : ''}`}
                                 onClick={() => handleRepasseToggle(order)}
-                                title={order.repasseCompleted ? 'Repasse confirmado' : 'Confirmar repasse'}
+                                title={order.repasseCompleted ? 'Repasse confirmado — clique para reverter' : 'Confirmar repasse ao fornecedor'}
                               >
                                 <CheckCircle className="w-4 h-4" />
                               </Button>
@@ -178,7 +244,7 @@ const Orders = () => {
                               <Eye className="w-4 h-4" />
                             </Button>
                             {isAdmin && (
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(order.id)}>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDeleteClick(order)}>
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             )}
@@ -194,6 +260,7 @@ const Orders = () => {
         </CardContent>
       </Card>
 
+      {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -213,12 +280,34 @@ const Orders = () => {
                     {STATUS_LABELS[selectedOrder.status]}
                   </span>
                 </div>
+                {/* Repasse info - admin sees full, supplier sees their repasse */}
                 {isAdmin && (
                   <div>
                     <span className="text-muted-foreground">Repasse:</span><br />
                     <span className={`text-xs font-medium ${selectedOrder.repasseCompleted ? 'text-green-600' : 'text-yellow-600'}`}>
                       {selectedOrder.repasseCompleted ? `Confirmado em ${selectedOrder.repasseDate ? new Date(selectedOrder.repasseDate).toLocaleDateString('pt-BR') : '-'}` : 'Pendente'}
                     </span>
+                    {FINANCIAL_STATUSES.includes(selectedOrder.status) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Valor repasse: R$ {(selectedOrder.supplierTotalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {!isAdmin && FINANCIAL_STATUSES.includes(selectedOrder.status) && (
+                  <div>
+                    <span className="text-muted-foreground">Repasse:</span><br />
+                    <span className={`text-xs font-medium ${selectedOrder.repasseCompleted ? 'text-green-600' : 'text-yellow-600'}`}>
+                      {selectedOrder.repasseCompleted ? 'Confirmado' : 'Pendente'}
+                    </span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      R$ {(selectedOrder.supplierTotalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    {selectedOrder.repasseCompleted && selectedOrder.repasseDate && (
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(selectedOrder.repasseDate).toLocaleDateString('pt-BR')}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -254,6 +343,39 @@ const Orders = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={() => !deleting && setDeleteTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" /> Confirmar Exclusão
+            </DialogTitle>
+            <DialogDescription>
+              Esta ação é irreversível e pode afetar registros financeiros.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteTarget && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 p-3 bg-muted rounded-lg">
+                <div><span className="text-muted-foreground">Pedido:</span> <strong>{deleteTarget.orderNumber}</strong></div>
+                <div><span className="text-muted-foreground">Aluno:</span> <strong>{deleteTarget.studentName}</strong></div>
+                <div><span className="text-muted-foreground">Itens:</span> {deleteTarget.items.length}</div>
+                <div><span className="text-muted-foreground">Total:</span> <strong>R$ {deleteTarget.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+              </div>
+              <p className="text-xs text-destructive font-medium">
+                ⚠️ Esta ação pode afetar registros financeiros. Todos os dados do pedido serão removidos permanentemente.
+              </p>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? 'Excluindo...' : 'Confirmar Exclusão'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

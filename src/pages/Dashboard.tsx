@@ -4,19 +4,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, CheckCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Statuses that generate revenue (paid and beyond, excluding cancelled)
+const REVENUE_STATUSES: OrderStatus[] = ['paid', 'in_production', 'ready', 'delivered'];
+
 const Dashboard = () => {
   const { user } = useAuth();
   const { orders, loading } = useOrders();
   const isAdmin = user?.activeRole === 'admin';
 
-  // Exclude cancelled orders from financial calculations
-  const activeOrders = orders.filter(o => o.status !== 'cancelled');
+  // Only paid+ orders generate financial metrics (not awaiting_payment, not cancelled)
+  const revenueOrders = orders.filter(o => REVENUE_STATUSES.includes(o.status));
 
-  const totalRevenue = activeOrders.reduce((s, o) => s + o.totalAmount, 0);
-  const totalSupplierCost = activeOrders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
+  const totalRevenue = revenueOrders.reduce((s, o) => s + o.totalAmount, 0);
+  const totalSupplierCost = revenueOrders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
   const totalProfit = totalRevenue - totalSupplierCost;
-  const confirmedProfit = activeOrders.filter(o => o.repasseCompleted).reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
-  const pendingProfit = totalProfit - confirmedProfit;
+
+  // Confirmed profit = repasse completed orders only
+  const confirmedProfit = revenueOrders
+    .filter(o => o.repasseCompleted)
+    .reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
+
+  // Pending profit = revenue orders where repasse is NOT completed
+  const pendingProfit = revenueOrders
+    .filter(o => !o.repasseCompleted)
+    .reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
 
   const awaitingPayment = orders.filter(o => o.status === 'awaiting_payment').length;
   const inProduction = orders.filter(o => o.status === 'in_production').length;

@@ -6,7 +6,6 @@ const corsHeaders = {
 };
 
 function generateXLSX(rows: Record<string, any>[], sheetName: string): Uint8Array {
-  // Simple XLSX generator using XML-based SpreadsheetML format
   const escapeXml = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   
   if (rows.length === 0) {
@@ -16,7 +15,6 @@ function generateXLSX(rows: Record<string, any>[], sheetName: string): Uint8Arra
   const headers = Object.keys(rows[0]);
   
   let sheetData = '<sheetData>';
-  // Header row
   sheetData += '<row r="1">';
   headers.forEach((h, i) => {
     const col = String.fromCharCode(65 + (i % 26));
@@ -25,7 +23,6 @@ function generateXLSX(rows: Record<string, any>[], sheetName: string): Uint8Arra
   });
   sheetData += '</row>';
 
-  // Data rows
   rows.forEach((row, ri) => {
     sheetData += `<row r="${ri + 2}">`;
     headers.forEach((h, i) => {
@@ -33,7 +30,7 @@ function generateXLSX(rows: Record<string, any>[], sheetName: string): Uint8Arra
       const prefix = i >= 26 ? String.fromCharCode(65 + Math.floor(i / 26) - 1) : '';
       const val = row[h];
       if (val === null || val === undefined || val === '') {
-        // skip empty
+        // skip
       } else if (typeof val === 'number') {
         sheetData += `<c r="${prefix}${col}${ri + 2}"><v>${val}</v></c>`;
       } else {
@@ -72,7 +69,6 @@ ${sheetData}
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
 </Relationships>`;
 
-  // Build ZIP manually (minimal ZIP format)
   const encoder = new TextEncoder();
   const files: { name: string; data: Uint8Array }[] = [
     { name: "[Content_Types].xml", data: encoder.encode(contentTypes) },
@@ -93,20 +89,19 @@ function buildZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
 
   for (const file of files) {
     const nameBytes = encoder.encode(file.name);
-    // Local file header
     const header = new Uint8Array(30 + nameBytes.length);
     const view = new DataView(header.buffer);
-    view.setUint32(0, 0x04034b50, true); // signature
-    view.setUint16(4, 20, true); // version
-    view.setUint16(6, 0, true); // flags
-    view.setUint16(8, 0, true); // compression (store)
-    view.setUint16(10, 0, true); // mod time
-    view.setUint16(12, 0, true); // mod date
-    view.setUint32(14, crc32(file.data), true); // crc
-    view.setUint32(18, file.data.length, true); // compressed size
-    view.setUint32(22, file.data.length, true); // uncompressed size
-    view.setUint16(26, nameBytes.length, true); // name length
-    view.setUint16(28, 0, true); // extra length
+    view.setUint32(0, 0x04034b50, true);
+    view.setUint16(4, 20, true);
+    view.setUint16(6, 0, true);
+    view.setUint16(8, 0, true);
+    view.setUint16(10, 0, true);
+    view.setUint16(12, 0, true);
+    view.setUint32(14, crc32(file.data), true);
+    view.setUint32(18, file.data.length, true);
+    view.setUint32(22, file.data.length, true);
+    view.setUint16(26, nameBytes.length, true);
+    view.setUint16(28, 0, true);
     header.set(nameBytes, 30);
 
     entries.push({ name: nameBytes, data: file.data, offset });
@@ -114,7 +109,6 @@ function buildZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
     offset += header.length + file.data.length;
   }
 
-  // Central directory
   const cdStart = offset;
   for (const entry of entries) {
     const cd = new Uint8Array(46 + entry.name.length);
@@ -174,6 +168,21 @@ function crc32(data: Uint8Array): number {
   }
   return (crc ^ 0xFFFFFFFF) >>> 0;
 }
+
+// Statuses that count for financial metrics
+const REVENUE_STATUSES = ['paid', 'in_production', 'ready', 'delivered'];
+
+const statusLabel = (s: string) => {
+  const map: Record<string, string> = {
+    awaiting_payment: 'Aguardando Pagamento',
+    paid: 'Pago',
+    in_production: 'Em Produção',
+    ready: 'Pronto',
+    delivered: 'Entregue',
+    cancelled: 'Cancelado',
+  };
+  return map[s] || s;
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -237,7 +246,13 @@ Deno.serve(async (req) => {
       .lte("created_at", endDate)
       .order("created_at", { ascending: true });
 
-    const orderIds = (orders || []).map((o: any) => o.id);
+    const allOrders = orders || [];
+    // Exclude cancelled from financial totals
+    const activeOrders = allOrders.filter((o: any) => o.status !== 'cancelled');
+    // Only paid+ orders generate revenue
+    const revenueOrders = activeOrders.filter((o: any) => REVENUE_STATUSES.includes(o.status));
+
+    const orderIds = allOrders.map((o: any) => o.id);
 
     let items: any[] = [];
     if (orderIds.length > 0) {
@@ -248,20 +263,14 @@ Deno.serve(async (req) => {
       items = data || [];
     }
 
-    const orderMap = new Map((orders || []).map((o: any) => [o.id, o]));
-
-    const statusLabel = (s: string) => {
-      if (s === "pending") return "Pendente";
-      if (s === "production") return "Em Produção";
-      if (s === "delivered") return "Entregue";
-      return s;
-    };
+    const orderMap = new Map(allOrders.map((o: any) => [o.id, o]));
 
     const rows: Record<string, any>[] = items.map((item: any) => {
       const order = orderMap.get(item.order_id) as any;
-      const profitUnit = (item.unit_price || 0) - (item.supplier_price || 0);
-      const profitTotal = (item.total || 0) - (item.supplier_total || 0);
-      const isPending = order?.status === "pending";
+      const isCancelled = order?.status === 'cancelled';
+      const isRevenue = REVENUE_STATUSES.includes(order?.status || '');
+      const profitUnit = isRevenue ? (item.unit_price || 0) - (item.supplier_price || 0) : 0;
+      const profitTotal = isRevenue ? (item.total || 0) - (item.supplier_total || 0) : 0;
 
       return {
         "Data do Pedido": order ? new Date(order.created_at).toLocaleDateString("pt-BR") : "",
@@ -272,34 +281,40 @@ Deno.serve(async (req) => {
         "Produto": item.product_name,
         "Tamanho": item.size,
         "Quantidade": item.quantity,
-        "Preço Unit. Escola": item.unit_price,
-        "Total Escola": item.total,
-        "Custo Unit. Fornecedor": item.supplier_price,
-        "Total Fornecedor": item.supplier_total,
+        "Preço Unit. Escola": isRevenue ? item.unit_price : 0,
+        "Total Escola": isRevenue ? item.total : 0,
+        "Custo Unit. Fornecedor": isRevenue ? item.supplier_price : 0,
+        "Total Fornecedor": isRevenue ? item.supplier_total : 0,
         "Lucro Unitário": profitUnit,
         "Lucro Total": profitTotal,
         "Status Pedido": statusLabel(order?.status || ""),
-        "Status Lucro": isPending ? "Pendente Repasse" : "Repassado",
+        "Repasse": order?.repasse_completed ? "Confirmado" : "Pendente",
+        "Data Repasse": order?.repasse_date ? new Date(order.repasse_date).toLocaleDateString("pt-BR") : "",
       };
     });
 
-    // Summary
-    const totalRevenue = items.reduce((s: number, i: any) => s + (i.total || 0), 0);
-    const totalSupplierCost = items.reduce((s: number, i: any) => s + (i.supplier_total || 0), 0);
+    // Summary - only revenue orders count
+    const revenueOrderIds = new Set(revenueOrders.map((o: any) => o.id));
+    const revenueItems = items.filter((i: any) => revenueOrderIds.has(i.order_id));
+
+    const totalRevenue = revenueItems.reduce((s: number, i: any) => s + (i.total || 0), 0);
+    const totalSupplierCost = revenueItems.reduce((s: number, i: any) => s + (i.supplier_total || 0), 0);
     const totalProfit = totalRevenue - totalSupplierCost;
-    const pendingOrders = (orders || []).filter((o: any) => o.status === "pending");
-    const settledOrders = (orders || []).filter((o: any) => o.status !== "pending");
-    const pendingProfit = pendingOrders.reduce((s: number, o: any) => s + ((o.total_amount || 0) - (o.supplier_total_amount || 0)), 0);
-    const settledProfit = settledOrders.reduce((s: number, o: any) => s + ((o.total_amount || 0) - (o.supplier_total_amount || 0)), 0);
+
+    const confirmedProfit = revenueOrders
+      .filter((o: any) => o.repasse_completed)
+      .reduce((s: number, o: any) => s + ((o.total_amount || 0) - (o.supplier_total_amount || 0)), 0);
+    const pendingProfit = totalProfit - confirmedProfit;
 
     rows.push({});
     rows.push({ "Data do Pedido": "═══ RESUMO MENSAL ═══", "Nº Pedido": `${monthStr}/${year}` });
-    rows.push({ "Data do Pedido": "Total Pedidos", "Nº Pedido": (orders || []).length });
-    rows.push({ "Data do Pedido": "Receita Total (Escola)", "Nº Pedido": `R$ ${totalRevenue.toFixed(2)}` });
-    rows.push({ "Data do Pedido": "Custo Total (Fornecedor)", "Nº Pedido": `R$ ${totalSupplierCost.toFixed(2)}` });
-    rows.push({ "Data do Pedido": "Lucro Total Gerado", "Nº Pedido": `R$ ${totalProfit.toFixed(2)}` });
-    rows.push({ "Data do Pedido": "Lucro Pendente Repasse", "Nº Pedido": `R$ ${pendingProfit.toFixed(2)}` });
-    rows.push({ "Data do Pedido": "Lucro Repassado", "Nº Pedido": `R$ ${settledProfit.toFixed(2)}` });
+    rows.push({ "Data do Pedido": "Total Pedidos", "Nº Pedido": allOrders.length });
+    rows.push({ "Data do Pedido": "Pedidos Cancelados", "Nº Pedido": allOrders.length - activeOrders.length });
+    rows.push({ "Data do Pedido": "Receita Bruta (Pagos+)", "Nº Pedido": `R$ ${totalRevenue.toFixed(2)}` });
+    rows.push({ "Data do Pedido": "Custo Fornecedor", "Nº Pedido": `R$ ${totalSupplierCost.toFixed(2)}` });
+    rows.push({ "Data do Pedido": "Lucro Total", "Nº Pedido": `R$ ${totalProfit.toFixed(2)}` });
+    rows.push({ "Data do Pedido": "Lucro Pendente (Repasse)", "Nº Pedido": `R$ ${pendingProfit.toFixed(2)}` });
+    rows.push({ "Data do Pedido": "Lucro Confirmado (Repasse)", "Nº Pedido": `R$ ${confirmedProfit.toFixed(2)}` });
 
     const sheetName = `Relatorio ${monthStr}-${year}`;
     const xlsxBuffer = generateXLSX(rows, sheetName);
@@ -334,7 +349,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, file: filePath, orders: (orders || []).length, items: items.length }),
+      JSON.stringify({ success: true, file: filePath, orders: allOrders.length, items: items.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
