@@ -22,6 +22,14 @@ const Dashboard = () => {
     .filter(o => !o.repasseCompleted)
     .reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
 
+  // Supplier-specific repasse metrics (RLS already filters by supplier_id)
+  const supplierPendingRepasse = !isAdmin
+    ? revenueOrders.filter(o => !o.repasseCompleted).reduce((s, o) => s + (o.supplierTotalAmount || 0), 0)
+    : 0;
+  const supplierConfirmedRepasse = !isAdmin
+    ? revenueOrders.filter(o => o.repasseCompleted).reduce((s, o) => s + (o.supplierTotalAmount || 0), 0)
+    : 0;
+
   const awaitingPayment = orders.filter(o => o.status === 'awaiting_payment').length;
   const inProduction = orders.filter(o => o.status === 'in_production').length;
   const ready = orders.filter(o => o.status === 'ready').length;
@@ -144,6 +152,35 @@ const Dashboard = () => {
               <div>
                 <p className="text-xs text-muted-foreground">Lucro Confirmado</p>
                 <p className="text-xl font-bold text-green-600">R$ {confirmedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Supplier repasse summary */}
+      {!isAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
+                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Repasse Pendente</p>
+                <p className="text-xl font-bold text-yellow-700">R$ {supplierPendingRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-green-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Repasse Confirmado</p>
+                <p className="text-xl font-bold text-green-600">R$ {supplierConfirmedRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
