@@ -10,25 +10,8 @@ import { Link } from 'react-router-dom';
 import { PlusCircle, Trash2, Search, Eye, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 
-const DELIVERY_DAYS = 20;
-
-// Statuses that have generated financial commitment (cannot hard-delete)
 const FINANCIAL_STATUSES: OrderStatus[] = ['paid', 'in_production', 'ready', 'delivered'];
-
-function getDeadlineStatus(createdAt: string) {
-  const created = new Date(createdAt);
-  const deadline = new Date(created);
-  deadline.setDate(deadline.getDate() + DELIVERY_DAYS);
-  const now = new Date();
-  const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (daysLeft < 0) return { label: `Atrasado (${Math.abs(daysLeft)}d)`, color: 'text-red-600 bg-red-50', deadlineDate: deadline };
-  if (daysLeft <= 3) return { label: `${daysLeft}d restantes`, color: 'text-orange-600 bg-orange-50', deadlineDate: deadline };
-  return { label: `${daysLeft}d restantes`, color: 'text-green-600 bg-green-50', deadlineDate: deadline };
-}
-
 const ALL_STATUSES: OrderStatus[] = ['awaiting_payment', 'paid', 'in_production', 'ready', 'delivered', 'cancelled'];
 
 const Orders = () => {
@@ -58,22 +41,12 @@ const Orders = () => {
   };
 
   const handleDeleteClick = (order: Order) => {
-    // If order is paid+ and repasse is completed, block deletion entirely
     if (FINANCIAL_STATUSES.includes(order.status) && order.repasseCompleted) {
-      toast({
-        title: 'Exclusão bloqueada',
-        description: 'Este pedido possui repasse confirmado. Cancele-o em vez de excluir.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Exclusão bloqueada', description: 'Este pedido possui repasse confirmado. Cancele-o em vez de excluir.', variant: 'destructive' });
       return;
     }
-    // If order is paid+, warn to cancel instead
     if (FINANCIAL_STATUSES.includes(order.status)) {
-      toast({
-        title: 'Não é possível excluir',
-        description: 'Pedidos pagos ou em andamento devem ser cancelados, não excluídos.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Não é possível excluir', description: 'Pedidos pagos ou em andamento devem ser cancelados, não excluídos.', variant: 'destructive' });
       return;
     }
     setDeleteTarget(order);
@@ -89,13 +62,8 @@ const Orders = () => {
   };
 
   const handleRepasseToggle = async (order: Order) => {
-    // Only allow repasse on paid+ orders (not awaiting_payment or cancelled)
     if (!FINANCIAL_STATUSES.includes(order.status)) {
-      toast({
-        title: 'Repasse indisponível',
-        description: 'O pedido precisa estar pago para confirmar repasse.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Repasse indisponível', description: 'O pedido precisa estar pago para confirmar repasse.', variant: 'destructive' });
       return;
     }
     const repasseAmount = order.supplierTotalAmount || 0;
@@ -108,17 +76,13 @@ const Orders = () => {
     });
   };
 
-  // Can this order show the repasse button?
-  const canShowRepasse = (order: Order) => {
-    return FINANCIAL_STATUSES.includes(order.status) && order.status !== 'cancelled';
-  };
-
   if (loading) {
     return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64" /></div>;
   }
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold">Pedidos</h2>
@@ -129,6 +93,7 @@ const Orders = () => {
         )}
       </div>
 
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -145,6 +110,7 @@ const Orders = () => {
         </Select>
       </div>
 
+      {/* Orders table */}
       <Card>
         <CardContent className="p-0">
           {filtered.length === 0 ? (
@@ -159,15 +125,12 @@ const Orders = () => {
                     <th className="p-3 hidden md:table-cell">Turma</th>
                     <th className="p-3">Total</th>
                     <th className="p-3">Status</th>
-                    {!isAdmin && <th className="p-3 hidden md:table-cell">Repasse</th>}
-                    <th className="p-3 hidden md:table-cell">Prazo</th>
                     <th className="p-3 hidden md:table-cell">Data</th>
                     <th className="p-3">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map(order => {
-                    const deadline = getDeadlineStatus(order.createdAt);
                     const allowed = getAllowedTransitions(order.status, activeRole as 'admin' | 'supplier');
                     return (
                       <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
@@ -175,9 +138,9 @@ const Orders = () => {
                         <td className="p-3">{order.studentName}</td>
                         <td className="p-3 hidden md:table-cell">{order.grade}</td>
                         <td className="p-3">
-                          {isAdmin
-                            ? `R$ ${order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                            : `R$ ${order.supplierTotalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                          R$ {isAdmin
+                            ? order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                            : order.supplierTotalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
                           }
                         </td>
                         <td className="p-3">
@@ -197,39 +160,12 @@ const Orders = () => {
                             </span>
                           )}
                         </td>
-                        {/* Supplier repasse column */}
-                        {!isAdmin && (
-                          <td className="p-3 hidden md:table-cell">
-                            {FINANCIAL_STATUSES.includes(order.status) ? (
-                              <div className="text-xs space-y-0.5">
-                                <span className={`font-medium ${order.repasseCompleted ? 'text-green-600' : 'text-yellow-600'}`}>
-                                  {order.repasseCompleted ? 'Confirmado' : 'Pendente'}
-                                </span>
-                                <p className="text-muted-foreground">
-                                  R$ {(order.supplierTotalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </p>
-                                {order.repasseCompleted && order.repasseDate && (
-                                  <p className="text-muted-foreground">{new Date(order.repasseDate).toLocaleDateString('pt-BR')}</p>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
-                            )}
-                          </td>
-                        )}
-                        <td className="p-3 hidden md:table-cell">
-                          {order.status === 'delivered' || order.status === 'cancelled' ? (
-                            <span className="text-xs text-muted-foreground">{STATUS_LABELS[order.status]}</span>
-                          ) : (
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${deadline.color}`}>{deadline.label}</span>
-                          )}
-                        </td>
                         <td className="p-3 hidden md:table-cell text-muted-foreground">
                           {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-1">
-                            {isAdmin && canShowRepasse(order) && (
+                            {isAdmin && FINANCIAL_STATUSES.includes(order.status) && (
                               <Button
                                 size="icon"
                                 variant={order.repasseCompleted ? 'default' : 'ghost'}
@@ -273,40 +209,27 @@ const Orders = () => {
                 <div><span className="text-muted-foreground">Turma:</span><br />{selectedOrder.grade}</div>
                 {selectedOrder.responsibleName && <div><span className="text-muted-foreground">Responsável:</span><br />{selectedOrder.responsibleName}</div>}
                 {selectedOrder.phone && <div><span className="text-muted-foreground">Telefone:</span><br />{selectedOrder.phone}</div>}
-                <div><span className="text-muted-foreground">Data do Pedido:</span><br />{new Date(selectedOrder.createdAt).toLocaleDateString('pt-BR')}</div>
+                <div><span className="text-muted-foreground">Data:</span><br />{new Date(selectedOrder.createdAt).toLocaleDateString('pt-BR')}</div>
                 <div>
                   <span className="text-muted-foreground">Status:</span><br />
                   <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[selectedOrder.status]}`}>
                     {STATUS_LABELS[selectedOrder.status]}
                   </span>
                 </div>
-                {/* Repasse info - admin sees full, supplier sees their repasse */}
-                {isAdmin && (
-                  <div>
-                    <span className="text-muted-foreground">Repasse:</span><br />
-                    <span className={`text-xs font-medium ${selectedOrder.repasseCompleted ? 'text-green-600' : 'text-yellow-600'}`}>
-                      {selectedOrder.repasseCompleted ? `Confirmado em ${selectedOrder.repasseDate ? new Date(selectedOrder.repasseDate).toLocaleDateString('pt-BR') : '-'}` : 'Pendente'}
-                    </span>
-                    {FINANCIAL_STATUSES.includes(selectedOrder.status) && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Valor repasse: R$ {(selectedOrder.supplierTotalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {!isAdmin && FINANCIAL_STATUSES.includes(selectedOrder.status) && (
-                  <div>
+                {/* Repasse info in detail dialog */}
+                {FINANCIAL_STATUSES.includes(selectedOrder.status) && (
+                  <div className="col-span-2">
                     <span className="text-muted-foreground">Repasse:</span><br />
                     <span className={`text-xs font-medium ${selectedOrder.repasseCompleted ? 'text-green-600' : 'text-yellow-600'}`}>
                       {selectedOrder.repasseCompleted ? 'Confirmado' : 'Pendente'}
                     </span>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <span className="text-xs text-muted-foreground ml-2">
                       R$ {(selectedOrder.supplierTotalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
+                    </span>
                     {selectedOrder.repasseCompleted && selectedOrder.repasseDate && (
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(selectedOrder.repasseDate).toLocaleDateString('pt-BR')}
-                      </p>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        em {new Date(selectedOrder.repasseDate).toLocaleDateString('pt-BR')}
+                      </span>
                     )}
                   </div>
                 )}
@@ -366,7 +289,7 @@ const Orders = () => {
                 <div><span className="text-muted-foreground">Total:</span> <strong>R$ {deleteTarget.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
               </div>
               <p className="text-xs text-destructive font-medium">
-                ⚠️ Esta ação pode afetar registros financeiros. Todos os dados do pedido serão removidos permanentemente.
+                ⚠️ Todos os dados do pedido serão removidos permanentemente.
               </p>
             </div>
           )}

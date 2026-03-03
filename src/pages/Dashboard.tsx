@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, CheckCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Statuses that generate revenue (paid and beyond, excluding cancelled)
 const REVENUE_STATUSES: OrderStatus[] = ['paid', 'in_production', 'ready', 'delivered'];
 
 const Dashboard = () => {
@@ -12,19 +11,13 @@ const Dashboard = () => {
   const { orders, loading } = useOrders();
   const isAdmin = user?.activeRole === 'admin';
 
-  // Only paid+ orders generate financial metrics (not awaiting_payment, not cancelled)
   const revenueOrders = orders.filter(o => REVENUE_STATUSES.includes(o.status));
-
   const totalRevenue = revenueOrders.reduce((s, o) => s + o.totalAmount, 0);
   const totalSupplierCost = revenueOrders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
   const totalProfit = totalRevenue - totalSupplierCost;
-
-  // Confirmed profit = repasse completed orders only
   const confirmedProfit = revenueOrders
     .filter(o => o.repasseCompleted)
     .reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
-
-  // Pending profit = revenue orders where repasse is NOT completed
   const pendingProfit = revenueOrders
     .filter(o => !o.repasseCompleted)
     .reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
@@ -53,6 +46,7 @@ const Dashboard = () => {
         <p className="text-muted-foreground">Resumo geral do sistema</p>
       </div>
 
+      {/* Main KPI row — 4 cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5 flex items-center gap-4">
@@ -66,66 +60,6 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {isAdmin && (
-          <>
-            <Card>
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-green-700" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Receita Bruta</p>
-                  <p className="text-xl font-bold">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-blue-700" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Custo Fornecedor</p>
-                  <p className="text-xl font-bold">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-green-700" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Lucro Total</p>
-                  <p className="text-xl font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-yellow-300 bg-yellow-50/50">
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
-                  <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Lucro Pendente</p>
-                  <p className="text-xl font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-green-300 bg-green-50/50">
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-green-700" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Lucro Confirmado</p>
-                  <p className="text-xl font-bold text-green-600">R$ {confirmedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
-
         <Card>
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
@@ -137,6 +71,7 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+
         <Card>
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -148,8 +83,74 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center">
+              <Package className="w-5 h-5 text-purple-700" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Prontos p/ Entrega</p>
+              <p className="text-2xl font-bold">{ready}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Admin financial summary — compact row */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-green-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Receita Bruta</p>
+                <p className="text-xl font-bold">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-green-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Lucro Total</p>
+                <p className="text-xl font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
+                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Lucro Pendente</p>
+                <p className="text-xl font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-green-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Lucro Confirmado</p>
+                <p className="text-xl font-bold text-green-600">R$ {confirmedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Recent orders table */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Pedidos Recentes</CardTitle>
