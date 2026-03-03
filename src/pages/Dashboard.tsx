@@ -167,7 +167,7 @@ const Dashboard = () => {
                 <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Repasse Pendente</p>
+                <p className="text-xs text-muted-foreground">Lucro Pendente</p>
                 <p className="text-xl font-bold text-yellow-700">R$ {supplierPendingRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
@@ -179,7 +179,7 @@ const Dashboard = () => {
                 <CheckCircle className="w-5 h-5 text-green-700" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Repasse Confirmado</p>
+                <p className="text-xs text-muted-foreground">Lucro Confirmado</p>
                 <p className="text-xl font-bold text-green-600">R$ {supplierConfirmedRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
