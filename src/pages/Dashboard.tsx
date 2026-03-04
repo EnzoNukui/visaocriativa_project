@@ -28,6 +28,7 @@ const Dashboard = () => {
   const pending = orders.filter(o => o.status === 'pending').length;
   const production = orders.filter(o => o.status === 'production').length;
 
+  const isSupplier = user?.activeRole === 'supplier';
   const recentOrders = orders.slice(0, 8);
 
   if (loading) {
