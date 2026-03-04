@@ -1,9 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders, STATUS_LABELS, STATUS_COLORS, OrderStatus } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, CheckCircle } from 'lucide-react';
+import { ShoppingCart, DollarSign, Clock, Package, ArrowRightLeft, CheckCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Financial statuses: only non-cancelled, paid+ orders count
 const REVENUE_STATUSES: OrderStatus[] = ['paid', 'in_production', 'ready', 'delivered'];
 
 const Dashboard = () => {
@@ -11,23 +12,15 @@ const Dashboard = () => {
   const { orders, loading } = useOrders();
   const isAdmin = user?.activeRole === 'admin';
 
+  // Paid = Confirmed. No pending/confirmed split based on repasse.
   const revenueOrders = orders.filter(o => REVENUE_STATUSES.includes(o.status));
   const totalRevenue = revenueOrders.reduce((s, o) => s + o.totalAmount, 0);
   const totalSupplierCost = revenueOrders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
-  const totalProfit = totalRevenue - totalSupplierCost;
-  const confirmedProfit = revenueOrders
-    .filter(o => o.repasseCompleted)
-    .reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
-  const pendingProfit = revenueOrders
-    .filter(o => !o.repasseCompleted)
-    .reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
+  const confirmedProfit = totalRevenue - totalSupplierCost;
 
-  // Supplier-specific repasse metrics (RLS already filters by supplier_id)
-  const supplierPendingRepasse = !isAdmin
-    ? revenueOrders.filter(o => !o.repasseCompleted).reduce((s, o) => s + (o.supplierTotalAmount || 0), 0)
-    : 0;
-  const supplierConfirmedRepasse = !isAdmin
-    ? revenueOrders.filter(o => o.repasseCompleted).reduce((s, o) => s + (o.supplierTotalAmount || 0), 0)
+  // Supplier: total repasse = sum of supplier amounts from revenue orders (RLS filters by supplier_id)
+  const supplierRepasseTotal = !isAdmin
+    ? revenueOrders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0)
     : 0;
 
   const awaitingPayment = orders.filter(o => o.status === 'awaiting_payment').length;
@@ -105,9 +98,9 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Admin financial summary — compact row */}
+      {/* Admin financial summary — Paid = Confirmed */}
       {isAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
@@ -123,30 +116,6 @@ const Dashboard = () => {
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-green-700" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Lucro Total</p>
-                <p className="text-xl font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
-                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Lucro Pendente</p>
-                <p className="text-xl font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-green-700" />
               </div>
               <div>
@@ -155,32 +124,32 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
 
-      {/* Supplier repasse summary */}
-      {!isAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
-                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
+              <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
+                <ArrowRightLeft className="w-5 h-5 text-blue-700" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Lucro Pendente</p>
-                <p className="text-xl font-bold text-yellow-700">R$ {supplierPendingRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xs text-muted-foreground">Custo Fornecedor</p>
+                <p className="text-xl font-bold">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
 
+      {/* Supplier financial summary */}
+      {!isAdmin && (
+        <div className="grid grid-cols-1 max-w-md gap-4">
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-green-700" />
+                <DollarSign className="w-5 h-5 text-green-700" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Lucro Confirmado</p>
-                <p className="text-xl font-bold text-green-600">R$ {supplierConfirmedRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xs text-muted-foreground">Repasse Total</p>
+                <p className="text-xl font-bold text-green-600">R$ {supplierRepasseTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
