@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Download, Database, FileSpreadsheet, Clock, HardDrive, Loader2 } from 'lucide-react';
+import { Download, Database, FileSpreadsheet, Clock, HardDrive, Loader2, ShoppingCart } from 'lucide-react';
 
 interface BackupEntry {
   id: string;
@@ -60,7 +60,7 @@ const Backups = () => {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
-      
+
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/financial-report?month=${selectedMonth}&year=${selectedYear}`,
         {
@@ -71,17 +71,49 @@ const Backups = () => {
           },
         }
       );
-      
+
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || 'Failed');
       }
-      
+
       const result = await response.json();
       toast({ title: 'Relatório gerado!', description: `${result.orders} pedidos exportados.` });
       await fetchHistory();
     } catch (err: any) {
       toast({ title: 'Erro ao gerar relatório', description: err.message, variant: 'destructive' });
+    }
+    setGenerating(null);
+  };
+
+  const handleOrderExport = async () => {
+    setGenerating('export');
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/financial-report?type=all_orders`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed');
+      }
+
+      const result = await response.json();
+      toast({ title: 'Exportação concluída!', description: `${result.orders} pedidos exportados.` });
+      await fetchHistory();
+    } catch (err: any) {
+      toast({ title: 'Erro ao exportar pedidos', description: err.message, variant: 'destructive' });
     }
     setGenerating(null);
   };
@@ -101,6 +133,12 @@ const Backups = () => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const typeLabels: Record<string, string> = {
+    full_backup: 'Backup',
+    financial_report: 'Relatório',
+    order_export: 'Export Pedidos',
   };
 
   const months = [
@@ -132,7 +170,7 @@ const Backups = () => {
         <p className="text-sm text-muted-foreground">Gerencie backups do banco de dados e relatórios financeiros.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         {/* Backup Card */}
         <Card>
           <CardHeader className="pb-3">
@@ -198,6 +236,28 @@ const Backups = () => {
             <p className="text-xs text-muted-foreground">Relatórios automáticos no 1º dia de cada mês</p>
           </CardContent>
         </Card>
+
+        {/* Order Export Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4" /> Exportar Pedidos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Exporta todos os pedidos em Excel (.xlsx), agrupados por status em abas separadas.
+            </p>
+            <Button onClick={handleOrderExport} disabled={generating === 'export'} className="w-full">
+              {generating === 'export' ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Exportando...</>
+              ) : (
+                <><ShoppingCart className="w-4 h-4 mr-2" /> Exportar Todos os Pedidos</>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground">Inclui todos os status • Arquivo: backup_pedidos_YYYY-MM-DD.xlsx</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* History */}
@@ -227,7 +287,7 @@ const Backups = () => {
                   <TableRow key={entry.id}>
                     <TableCell>
                       <Badge variant={entry.backup_type === 'full_backup' ? 'default' : 'secondary'}>
-                        {entry.backup_type === 'full_backup' ? 'Backup' : 'Relatório'}
+                        {typeLabels[entry.backup_type] || entry.backup_type}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs">{entry.file_path}</TableCell>

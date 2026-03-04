@@ -24,9 +24,14 @@ export interface Order {
   items: OrderItem[];
   totalAmount: number;
   supplierTotalAmount: number;
-  status: 'pending' | 'production' | 'delivered';
+  schoolProfit: number;
+  status: string;
   createdAt: string;
   createdBy: string;
+  repasseCompleted: boolean;
+  repasseDate: string | null;
+  repasseConfirmedBy: string | null;
+  repasseAmount: number;
 }
 
 export function useOrders() {
@@ -57,9 +62,14 @@ export function useOrders() {
       phone: o.phone,
       totalAmount: Number(o.total_amount),
       supplierTotalAmount: Number(o.supplier_total_amount),
-      status: o.status as Order['status'],
+      schoolProfit: Number(o.school_profit ?? (Number(o.total_amount) - Number(o.supplier_total_amount))),
+      status: o.status,
       createdAt: o.created_at,
       createdBy: o.created_by,
+      repasseCompleted: o.repasse_completed,
+      repasseDate: o.repasse_date,
+      repasseConfirmedBy: o.repasse_confirmed_by,
+      repasseAmount: Number(o.repasse_amount ?? 0),
       items: (itemsData || [])
         .filter(i => i.order_id === o.id)
         .map(i => ({
@@ -83,7 +93,8 @@ export function useOrders() {
     if (session) fetchOrders();
   }, [session, fetchOrders]);
 
-  const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => {
+  const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'repasseCompleted' | 'repasseDate' | 'repasseConfirmedBy' | 'repasseAmount' | 'schoolProfit'>) => {
+    const schoolProfit = order.totalAmount - order.supplierTotalAmount;
     const { data, error } = await supabase
       .from('orders')
       .insert({
@@ -93,16 +104,17 @@ export function useOrders() {
         phone: order.phone,
         total_amount: order.totalAmount,
         supplier_total_amount: order.supplierTotalAmount,
+        school_profit: schoolProfit,
+        repasse_amount: order.supplierTotalAmount,
         status: order.status,
         created_by: order.createdBy,
-        order_number: 'TEMP', // trigger will override
+        order_number: 'TEMP',
       })
       .select()
       .single();
 
     if (error || !data) return null;
 
-    // Insert items
     const itemsToInsert = order.items.map(i => ({
       order_id: data.id,
       product_id: i.productId,
@@ -120,8 +132,17 @@ export function useOrders() {
     return data;
   }, [fetchOrders]);
 
-  const updateStatus = useCallback(async (id: string, status: Order['status']) => {
+  const updateStatus = useCallback(async (id: string, status: string) => {
     await supabase.from('orders').update({ status }).eq('id', id);
+    await fetchOrders();
+  }, [fetchOrders]);
+
+  const updateRepasseCompleted = useCallback(async (id: string, completed: boolean, userId: string) => {
+    await supabase.from('orders').update({
+      repasse_completed: completed,
+      repasse_date: completed ? new Date().toISOString() : null,
+      repasse_confirmed_by: completed ? userId : null,
+    }).eq('id', id);
     await fetchOrders();
   }, [fetchOrders]);
 
@@ -130,5 +151,5 @@ export function useOrders() {
     await fetchOrders();
   }, [fetchOrders]);
 
-  return { orders, loading, addOrder, updateStatus, deleteOrder, refresh: fetchOrders };
+  return { orders, loading, addOrder, updateStatus, updateRepasseCompleted, deleteOrder, refresh: fetchOrders };
 }

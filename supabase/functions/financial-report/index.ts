@@ -5,56 +5,56 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function generateXLSX(rows: Record<string, any>[], sheetName: string): Uint8Array {
-  // Simple XLSX generator using XML-based SpreadsheetML format
+function generateXLSXMultiSheet(sheets: { name: string; rows: Record<string, any>[] }[]): Uint8Array {
   const escapeXml = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  
-  if (rows.length === 0) {
-    rows = [{ "Info": "Nenhum dado encontrado" }];
-  }
 
-  const headers = Object.keys(rows[0]);
-  
-  let sheetData = '<sheetData>';
-  // Header row
-  sheetData += '<row r="1">';
-  headers.forEach((h, i) => {
-    const col = String.fromCharCode(65 + (i % 26));
-    const prefix = i >= 26 ? String.fromCharCode(65 + Math.floor(i / 26) - 1) : '';
-    sheetData += `<c r="${prefix}${col}1" t="inlineStr"><is><t>${escapeXml(h)}</t></is></c>`;
-  });
-  sheetData += '</row>';
+  const sheetFiles: { name: string; content: string }[] = [];
 
-  // Data rows
-  rows.forEach((row, ri) => {
-    sheetData += `<row r="${ri + 2}">`;
+  for (let si = 0; si < sheets.length; si++) {
+    let rows = sheets[si].rows;
+    if (rows.length === 0) rows = [{ "Info": "Nenhum dado encontrado" }];
+
+    const headers = Object.keys(rows[0]);
+    let sheetData = '<sheetData>';
+    sheetData += '<row r="1">';
     headers.forEach((h, i) => {
-      const col = String.fromCharCode(65 + (i % 26));
-      const prefix = i >= 26 ? String.fromCharCode(65 + Math.floor(i / 26) - 1) : '';
-      const val = row[h];
-      if (val === null || val === undefined || val === '') {
-        // skip empty
-      } else if (typeof val === 'number') {
-        sheetData += `<c r="${prefix}${col}${ri + 2}"><v>${val}</v></c>`;
-      } else {
-        sheetData += `<c r="${prefix}${col}${ri + 2}" t="inlineStr"><is><t>${escapeXml(String(val))}</t></is></c>`;
-      }
+      const col = getCol(i);
+      sheetData += `<c r="${col}1" t="inlineStr"><is><t>${escapeXml(h)}</t></is></c>`;
     });
     sheetData += '</row>';
-  });
-  sheetData += '</sheetData>';
 
-  const sheet1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-${sheetData}
-</worksheet>`;
+    rows.forEach((row, ri) => {
+      sheetData += `<row r="${ri + 2}">`;
+      headers.forEach((h, i) => {
+        const col = getCol(i);
+        const val = row[h];
+        if (val === null || val === undefined || val === '') { /* skip */ }
+        else if (typeof val === 'number') {
+          sheetData += `<c r="${col}${ri + 2}"><v>${val}</v></c>`;
+        } else {
+          sheetData += `<c r="${col}${ri + 2}" t="inlineStr"><is><t>${escapeXml(String(val))}</t></is></c>`;
+        }
+      });
+      sheetData += '</row>';
+    });
+    sheetData += '</sheetData>';
+
+    sheetFiles.push({
+      name: `xl/worksheets/sheet${si + 1}.xml`,
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">\n${sheetData}\n</worksheet>`,
+    });
+  }
+
+  const sheetOverrides = sheets.map((_, i) =>
+    `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+  ).join('\n');
 
   const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
 <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+${sheetOverrides}
 </Types>`;
 
   const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -62,27 +62,49 @@ ${sheetData}
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
 </Relationships>`;
 
+  const sheetEntries = sheets.map((s, i) =>
+    `<sheet name="${escapeXml(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`
+  ).join('\n');
+
   const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets><sheet name="${escapeXml(sheetName)}" sheetId="1" r:id="rId1"/></sheets>
+<sheets>${sheetEntries}</sheets>
 </workbook>`;
+
+  const wbRelsEntries = sheets.map((_, i) =>
+    `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`
+  ).join('\n');
 
   const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+${wbRelsEntries}
 </Relationships>`;
 
-  // Build ZIP manually (minimal ZIP format)
   const encoder = new TextEncoder();
   const files: { name: string; data: Uint8Array }[] = [
     { name: "[Content_Types].xml", data: encoder.encode(contentTypes) },
     { name: "_rels/.rels", data: encoder.encode(rels) },
     { name: "xl/workbook.xml", data: encoder.encode(workbook) },
     { name: "xl/_rels/workbook.xml.rels", data: encoder.encode(wbRels) },
-    { name: "xl/worksheets/sheet1.xml", data: encoder.encode(sheet1) },
+    ...sheetFiles.map(sf => ({ name: sf.name, data: encoder.encode(sf.content) })),
   ];
 
   return buildZip(files);
+}
+
+function getCol(i: number): string {
+  let col = '';
+  let n = i;
+  while (n >= 0) {
+    col = String.fromCharCode(65 + (n % 26)) + col;
+    n = Math.floor(n / 26) - 1;
+  }
+  return col;
+}
+
+// Keep single-sheet for backward compat
+function generateXLSX(rows: Record<string, any>[], sheetName: string): Uint8Array {
+  return generateXLSXMultiSheet([{ name: sheetName, rows }]);
 }
 
 function buildZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
@@ -93,20 +115,19 @@ function buildZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
 
   for (const file of files) {
     const nameBytes = encoder.encode(file.name);
-    // Local file header
     const header = new Uint8Array(30 + nameBytes.length);
     const view = new DataView(header.buffer);
-    view.setUint32(0, 0x04034b50, true); // signature
-    view.setUint16(4, 20, true); // version
-    view.setUint16(6, 0, true); // flags
-    view.setUint16(8, 0, true); // compression (store)
-    view.setUint16(10, 0, true); // mod time
-    view.setUint16(12, 0, true); // mod date
-    view.setUint32(14, crc32(file.data), true); // crc
-    view.setUint32(18, file.data.length, true); // compressed size
-    view.setUint32(22, file.data.length, true); // uncompressed size
-    view.setUint16(26, nameBytes.length, true); // name length
-    view.setUint16(28, 0, true); // extra length
+    view.setUint32(0, 0x04034b50, true);
+    view.setUint16(4, 20, true);
+    view.setUint16(6, 0, true);
+    view.setUint16(8, 0, true);
+    view.setUint16(10, 0, true);
+    view.setUint16(12, 0, true);
+    view.setUint32(14, crc32(file.data), true);
+    view.setUint32(18, file.data.length, true);
+    view.setUint32(22, file.data.length, true);
+    view.setUint16(26, nameBytes.length, true);
+    view.setUint16(28, 0, true);
     header.set(nameBytes, 30);
 
     entries.push({ name: nameBytes, data: file.data, offset });
@@ -114,7 +135,6 @@ function buildZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
     offset += header.length + file.data.length;
   }
 
-  // Central directory
   const cdStart = offset;
   for (const entry of entries) {
     const cd = new Uint8Array(46 + entry.name.length);
@@ -175,6 +195,14 @@ function crc32(data: Uint8Array): number {
   return (crc ^ 0xFFFFFFFF) >>> 0;
 }
 
+const statusLabel = (s: string) => {
+  const map: Record<string, string> = {
+    pending: "Pendente", production: "Em Produção", delivered: "Entregue",
+    paid: "Pago", awaiting_payment: "Aguardando Pagamento", ready: "Pronto", cancelled: "Cancelado",
+  };
+  return map[s] || s;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -206,7 +234,82 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const qMonth = url.searchParams.get("month");
     const qYear = url.searchParams.get("year");
+    const exportType = url.searchParams.get("type"); // "all_orders" for full export
 
+    // ── FULL ORDER EXPORT ──
+    if (exportType === "all_orders") {
+      const { data: allOrders } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      const orders = allOrders || [];
+
+      // Group by status
+      const statusGroups: Record<string, any[]> = {};
+      for (const o of orders) {
+        const label = statusLabel(o.status);
+        if (!statusGroups[label]) statusGroups[label] = [];
+        statusGroups[label].push(o);
+      }
+
+      const sheets: { name: string; rows: Record<string, any>[] }[] = [];
+
+      for (const [groupName, groupOrders] of Object.entries(statusGroups)) {
+        const rows = groupOrders.map((o: any) => ({
+          "Nº do Pedido": o.order_number || "",
+          "Aluno": o.student_name || "",
+          "Turma": o.grade || "",
+          "Valor de Venda": Number(o.total_amount || 0),
+          "Custo Fornecedor": Number(o.supplier_total_amount || 0),
+          "Valor de Repasse": Number(o.repasse_amount ?? o.supplier_total_amount ?? 0),
+          "Lucro da Escola": Number(o.school_profit ?? (Number(o.total_amount || 0) - Number(o.supplier_total_amount || 0))),
+          "Status": statusLabel(o.status),
+          "Repasse Concluído": o.repasse_completed ? "Sim" : "Não",
+          "Data Repasse": o.repasse_date ? new Date(o.repasse_date).toLocaleString("pt-BR") : "",
+          "Data do Pedido": o.created_at ? new Date(o.created_at).toLocaleDateString("pt-BR") : "",
+        }));
+        sheets.push({ name: groupName.substring(0, 31), rows });
+      }
+
+      if (sheets.length === 0) {
+        sheets.push({ name: "Pedidos", rows: [{ "Info": "Nenhum pedido encontrado" }] });
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+      const fileName = `backup_pedidos_${today}.xlsx`;
+      const xlsxBuffer = generateXLSXMultiSheet(sheets);
+
+      await supabase.storage.from("reports").upload(fileName, xlsxBuffer, {
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        upsert: true,
+      });
+
+      await supabase.from("backup_history").insert({
+        backup_type: "order_export",
+        file_path: fileName,
+        created_by: "admin",
+        file_size: xlsxBuffer.length,
+      });
+
+      const wantDownload = url.searchParams.get("download") === "true";
+      if (wantDownload) {
+        return new Response(xlsxBuffer, {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Content-Disposition": `attachment; filename="${fileName}"`,
+          },
+        });
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, file: fileName, orders: orders.length }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── MONTHLY FINANCIAL REPORT (existing) ──
     let month: number;
     let year: number;
 
@@ -250,18 +353,10 @@ Deno.serve(async (req) => {
 
     const orderMap = new Map((orders || []).map((o: any) => [o.id, o]));
 
-    const statusLabel = (s: string) => {
-      if (s === "pending") return "Pendente";
-      if (s === "production") return "Em Produção";
-      if (s === "delivered") return "Entregue";
-      return s;
-    };
-
     const rows: Record<string, any>[] = items.map((item: any) => {
       const order = orderMap.get(item.order_id) as any;
       const profitUnit = (item.unit_price || 0) - (item.supplier_price || 0);
       const profitTotal = (item.total || 0) - (item.supplier_total || 0);
-      const isPending = order?.status === "pending";
 
       return {
         "Data do Pedido": order ? new Date(order.created_at).toLocaleDateString("pt-BR") : "",
@@ -279,16 +374,15 @@ Deno.serve(async (req) => {
         "Lucro Unitário": profitUnit,
         "Lucro Total": profitTotal,
         "Status Pedido": statusLabel(order?.status || ""),
-        "Status Lucro": isPending ? "Pendente Repasse" : "Repassado",
+        "Repasse Concluído": order?.repasse_completed ? "Sim" : "Não",
       };
     });
 
-    // Summary
     const totalRevenue = items.reduce((s: number, i: any) => s + (i.total || 0), 0);
     const totalSupplierCost = items.reduce((s: number, i: any) => s + (i.supplier_total || 0), 0);
     const totalProfit = totalRevenue - totalSupplierCost;
-    const pendingOrders = (orders || []).filter((o: any) => o.status === "pending");
-    const settledOrders = (orders || []).filter((o: any) => o.status !== "pending");
+    const pendingOrders = (orders || []).filter((o: any) => !o.repasse_completed);
+    const settledOrders = (orders || []).filter((o: any) => o.repasse_completed);
     const pendingProfit = pendingOrders.reduce((s: number, o: any) => s + ((o.total_amount || 0) - (o.supplier_total_amount || 0)), 0);
     const settledProfit = settledOrders.reduce((s: number, o: any) => s + ((o.total_amount || 0) - (o.supplier_total_amount || 0)), 0);
 

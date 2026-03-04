@@ -8,22 +8,31 @@ const statusLabels: Record<string, string> = {
   pending: 'Pendente',
   production: 'Em Produção',
   delivered: 'Entregue',
+  paid: 'Pago',
+  awaiting_payment: 'Aguardando Pagamento',
+  ready: 'Pronto',
+  cancelled: 'Cancelado',
 };
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   production: 'bg-blue-100 text-blue-800',
   delivered: 'bg-green-100 text-green-800',
+  paid: 'bg-emerald-100 text-emerald-800',
+  awaiting_payment: 'bg-orange-100 text-orange-800',
+  ready: 'bg-purple-100 text-purple-800',
+  cancelled: 'bg-red-100 text-red-800',
 };
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { orders, loading } = useOrders();
 
-  const totalRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
-  const totalSupplierCost = orders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
+  const nonCancelled = orders.filter(o => o.status !== 'cancelled');
+  const totalRevenue = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
+  const totalSupplierCost = nonCancelled.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
   const totalProfit = totalRevenue - totalSupplierCost;
-  const pendingProfit = orders.filter(o => o.status === 'pending').reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
+  const pendingProfit = nonCancelled.filter(o => !o.repasseCompleted).reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
   const settledProfit = totalProfit - pendingProfit;
   const pending = orders.filter(o => o.status === 'pending').length;
   const production = orders.filter(o => o.status === 'production').length;
@@ -172,8 +181,8 @@ const Dashboard = () => {
                       <td className="py-3 pr-4">{order.grade}</td>
                       <td className="py-3 pr-4">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="py-3 pr-4">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
-                          {statusLabels[order.status]}
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-800'}`}>
+                          {statusLabels[order.status] || order.status}
                         </span>
                       </td>
                       <td className="py-3 text-muted-foreground">{new Date(order.createdAt).toLocaleDateString('pt-BR')}</td>
