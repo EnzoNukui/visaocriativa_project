@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft } from 'lucide-react';
@@ -15,12 +16,20 @@ const statusLabels: Record<string, string> = {
   pending: 'Pendente',
   production: 'Em Produção',
   delivered: 'Entregue',
+  paid: 'Pago',
+  awaiting_payment: 'Aguardando Pagamento',
+  ready: 'Pronto',
+  cancelled: 'Cancelado',
 };
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   production: 'bg-blue-100 text-blue-800',
   delivered: 'bg-green-100 text-green-800',
+  paid: 'bg-emerald-100 text-emerald-800',
+  awaiting_payment: 'bg-orange-100 text-orange-800',
+  ready: 'bg-purple-100 text-purple-800',
+  cancelled: 'bg-red-100 text-red-800',
 };
 
 const DELIVERY_DAYS = 20;
@@ -39,7 +48,7 @@ function getDeadlineStatus(createdAt: string) {
 
 const Orders = () => {
   const { user } = useAuth();
-  const { orders, loading, updateStatus, deleteOrder } = useOrders();
+  const { orders, loading, updateStatus, updateRepasseCompleted, deleteOrder } = useOrders();
   const { toast } = useToast();
   const isAdmin = user?.activeRole === 'admin';
   const isSupplier = user?.activeRole === 'supplier';
@@ -55,9 +64,15 @@ const Orders = () => {
     return matchSearch && matchStatus;
   });
 
-  const handleStatusChange = async (id: string, status: Order['status']) => {
+  const handleStatusChange = async (id: string, status: string) => {
     await updateStatus(id, status);
-    toast({ title: 'Status atualizado', description: `Pedido marcado como "${statusLabels[status]}"` });
+    toast({ title: 'Status atualizado', description: `Pedido marcado como "${statusLabels[status] || status}"` });
+  };
+
+  const handleRepasseToggle = async (id: string, currentValue: boolean) => {
+    if (!user) return;
+    await updateRepasseCompleted(id, !currentValue, user.id);
+    toast({ title: !currentValue ? 'Repasse confirmado' : 'Repasse desfeito' });
   };
 
   const handleDelete = async (id: string) => {
@@ -65,10 +80,11 @@ const Orders = () => {
     toast({ title: 'Pedido excluído', description: 'O pedido foi removido com sucesso.' });
   };
 
-  const totalSchool = orders.reduce((s, o) => s + o.totalAmount, 0);
-  const totalSupplier = orders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
+  const nonCancelled = orders.filter(o => o.status !== 'cancelled');
+  const totalSchool = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
+  const totalSupplier = nonCancelled.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
   const totalProfit = totalSchool - totalSupplier;
-  const pendingProfit = orders.filter(o => o.status === 'pending').reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
+  const pendingProfit = nonCancelled.filter(o => !o.repasseCompleted).reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
   const settledProfit = totalProfit - pendingProfit;
 
   if (loading) {
@@ -134,6 +150,10 @@ const Orders = () => {
             <SelectItem value="pending">Pendente</SelectItem>
             <SelectItem value="production">Em Produção</SelectItem>
             <SelectItem value="delivered">Entregue</SelectItem>
+            <SelectItem value="paid">Pago</SelectItem>
+            <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
+            <SelectItem value="ready">Pronto</SelectItem>
+            <SelectItem value="cancelled">Cancelado</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -167,18 +187,22 @@ const Orders = () => {
                         <td className="p-3 hidden md:table-cell">{order.grade}</td>
                         <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                         <td className="p-3">
-                          {isSupplier ? (
-                            <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v as Order['status'])}>
-                              <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
+                          {isAdmin ? (
+                            <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v)}>
+                              <SelectTrigger className="h-7 w-36 text-xs"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="pending">Pendente</SelectItem>
+                                <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
+                                <SelectItem value="paid">Pago</SelectItem>
                                 <SelectItem value="production">Em Produção</SelectItem>
+                                <SelectItem value="ready">Pronto</SelectItem>
                                 <SelectItem value="delivered">Entregue</SelectItem>
+                                <SelectItem value="cancelled">Cancelado</SelectItem>
                               </SelectContent>
                             </Select>
                           ) : (
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
-                              {statusLabels[order.status]}
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-800'}`}>
+                              {statusLabels[order.status] || order.status}
                             </span>
                           )}
                         </td>
@@ -194,8 +218,18 @@ const Orders = () => {
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-1">
-                            {order.status !== 'pending' && (
-                              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 mr-1">Repassado</span>
+                            {isAdmin ? (
+                              <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
+                                <Checkbox
+                                  checked={order.repasseCompleted}
+                                  onCheckedChange={() => handleRepasseToggle(order.id, order.repasseCompleted)}
+                                />
+                                <span className="text-[10px] text-muted-foreground">Repasse</span>
+                              </label>
+                            ) : (
+                              order.repasseCompleted && (
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Repassado</span>
+                              )
                             )}
                             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
                               <Eye className="w-4 h-4" />
