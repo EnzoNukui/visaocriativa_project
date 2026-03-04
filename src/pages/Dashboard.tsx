@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders, STATUS_LABELS, STATUS_COLORS, OrderStatus } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, CheckCircle } from 'lucide-react';
+import { ShoppingCart, DollarSign, Clock, Package, ArrowRightLeft, CheckCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Financial statuses: only non-cancelled, paid+ orders count
