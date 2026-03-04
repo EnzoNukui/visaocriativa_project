@@ -147,6 +147,7 @@ export type Database = {
           repasse_confirmed_by: string | null
           repasse_date: string | null
           responsible_name: string
+          school_profit: number | null
           status: string
           student_name: string
           supplier_id: string | null
@@ -165,6 +166,7 @@ export type Database = {
           repasse_confirmed_by?: string | null
           repasse_date?: string | null
           responsible_name: string
+          school_profit?: number | null
           status?: string
           student_name: string
           supplier_id?: string | null
@@ -183,6 +185,7 @@ export type Database = {
           repasse_confirmed_by?: string | null
           repasse_date?: string | null
           responsible_name?: string
+          school_profit?: number | null
           status?: string
           student_name?: string
           supplier_id?: string | null
