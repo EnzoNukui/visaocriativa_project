@@ -28,6 +28,7 @@ const Dashboard = () => {
   const pending = orders.filter(o => o.status === 'pending').length;
   const production = orders.filter(o => o.status === 'production').length;
 
+  const isSupplier = user?.activeRole === 'supplier';
   const recentOrders = orders.slice(0, 8);
 
   if (loading) {
@@ -60,17 +61,19 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-green-700" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Receita (Escola)</p>
-              <p className="text-xl font-bold">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-          </CardContent>
-        </Card>
+        {!isSupplier && (
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-green-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Receita (Escola)</p>
+                <p className="text-xl font-bold">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -82,17 +85,19 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-green-700" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Lucro Total</p>
-              <p className="text-xl font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-          </CardContent>
-        </Card>
+        {!isSupplier && (
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-green-700" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Lucro Total</p>
+                <p className="text-xl font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <Card className="border-yellow-300 bg-yellow-50/50">
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">

@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          entity_id: string
+          entity_type: string
+          field_name: string | null
+          id: string
+          new_value: string | null
+          old_value: string | null
+          performed_at: string
+          performed_by: string
+        }
+        Insert: {
+          action: string
+          entity_id: string
+          entity_type: string
+          field_name?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          performed_at?: string
+          performed_by: string
+        }
+        Update: {
+          action?: string
+          entity_id?: string
+          entity_type?: string
+          field_name?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          performed_at?: string
+          performed_by?: string
+        }
+        Relationships: []
+      }
       backup_history: {
         Row: {
           backup_type: string
@@ -106,9 +142,14 @@ export type Database = {
           id: string
           order_number: string
           phone: string
+          repasse_amount: number | null
+          repasse_completed: boolean
+          repasse_confirmed_by: string | null
+          repasse_date: string | null
           responsible_name: string
           status: string
           student_name: string
+          supplier_id: string | null
           supplier_total_amount: number
           total_amount: number
         }
@@ -119,9 +160,14 @@ export type Database = {
           id?: string
           order_number: string
           phone: string
+          repasse_amount?: number | null
+          repasse_completed?: boolean
+          repasse_confirmed_by?: string | null
+          repasse_date?: string | null
           responsible_name: string
           status?: string
           student_name: string
+          supplier_id?: string | null
           supplier_total_amount?: number
           total_amount?: number
         }
@@ -132,9 +178,14 @@ export type Database = {
           id?: string
           order_number?: string
           phone?: string
+          repasse_amount?: number | null
+          repasse_completed?: boolean
+          repasse_confirmed_by?: string | null
+          repasse_date?: string | null
           responsible_name?: string
           status?: string
           student_name?: string
+          supplier_id?: string | null
           supplier_total_amount?: number
           total_amount?: number
         }
