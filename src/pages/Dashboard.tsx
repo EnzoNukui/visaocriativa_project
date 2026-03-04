@@ -98,9 +98,9 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Admin financial summary — compact row */}
+      {/* Admin financial summary — Paid = Confirmed */}
       {isAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
@@ -116,30 +116,6 @@ const Dashboard = () => {
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-green-700" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Lucro Total</p>
-                <p className="text-xl font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
-                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Lucro Pendente</p>
-                <p className="text-xl font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-green-700" />
               </div>
               <div>
@@ -148,32 +124,32 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
 
-      {/* Supplier repasse summary */}
-      {!isAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
-                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
+              <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
+                <ArrowRightLeft className="w-5 h-5 text-blue-700" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Lucro Pendente</p>
-                <p className="text-xl font-bold text-yellow-700">R$ {supplierPendingRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xs text-muted-foreground">Custo Fornecedor</p>
+                <p className="text-xl font-bold">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
 
+      {/* Supplier financial summary */}
+      {!isAdmin && (
+        <div className="grid grid-cols-1 max-w-md gap-4">
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-green-700" />
+                <DollarSign className="w-5 h-5 text-green-700" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Lucro Confirmado</p>
-                <p className="text-xl font-bold text-green-600">R$ {supplierConfirmedRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xs text-muted-foreground">Repasse Total</p>
+                <p className="text-xl font-bold text-green-600">R$ {supplierRepasseTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
