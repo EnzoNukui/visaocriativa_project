@@ -1,80 +1,75 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOrders, Order, OrderStatus, STATUS_LABELS, STATUS_COLORS, getAllowedTransitions } from '@/hooks/useOrders';
-import { Card, CardContent } from '@/components/ui/card';
+import { useOrders, Order } from '@/hooks/useOrders';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2, Search, Eye, CheckCircle, AlertTriangle } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const FINANCIAL_STATUSES: OrderStatus[] = ['paid', 'in_production', 'ready', 'delivered'];
-const ALL_STATUSES: OrderStatus[] = ['awaiting_payment', 'paid', 'in_production', 'ready', 'delivered', 'cancelled'];
+const statusLabels: Record<string, string> = {
+  pending: 'Pendente',
+  production: 'Em Produção',
+  delivered: 'Entregue',
+};
+
+const statusColors: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  production: 'bg-blue-100 text-blue-800',
+  delivered: 'bg-green-100 text-green-800',
+};
+
+const DELIVERY_DAYS = 20;
+
+function getDeadlineStatus(createdAt: string) {
+  const created = new Date(createdAt);
+  const deadline = new Date(created);
+  deadline.setDate(deadline.getDate() + DELIVERY_DAYS);
+  const now = new Date();
+  const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysLeft < 0) return { label: `Atrasado (${Math.abs(daysLeft)}d)`, color: 'text-red-600 bg-red-50', deadlineDate: deadline };
+  if (daysLeft <= 3) return { label: `${daysLeft}d restantes`, color: 'text-orange-600 bg-orange-50', deadlineDate: deadline };
+  return { label: `${daysLeft}d restantes`, color: 'text-green-600 bg-green-50', deadlineDate: deadline };
+}
 
 const Orders = () => {
   const { user } = useAuth();
-  const { orders, loading, updateStatus, updateRepasse, deleteOrder } = useOrders();
+  const { orders, loading, updateStatus, deleteOrder } = useOrders();
   const { toast } = useToast();
   const isAdmin = user?.activeRole === 'admin';
-  const activeRole = user?.activeRole || 'supplier';
+  const isSupplier = user?.activeRole === 'supplier';
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const filtered = orders.filter(o => {
     const matchSearch = o.studentName.toLowerCase().includes(search.toLowerCase()) ||
-      o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
-      o.grade.toLowerCase().includes(search.toLowerCase());
+      o.orderNumber.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || o.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
-  const handleStatusChange = async (id: string, status: OrderStatus) => {
+  const handleStatusChange = async (id: string, status: Order['status']) => {
     await updateStatus(id, status);
-    toast({ title: 'Status atualizado', description: `Pedido marcado como "${STATUS_LABELS[status]}"` });
+    toast({ title: 'Status atualizado', description: `Pedido marcado como "${statusLabels[status]}"` });
   };
 
-  const handleDeleteClick = (order: Order) => {
-    if (FINANCIAL_STATUSES.includes(order.status) && order.repasseCompleted) {
-      toast({ title: 'Exclusão bloqueada', description: 'Este pedido possui repasse confirmado. Cancele-o em vez de excluir.', variant: 'destructive' });
-      return;
-    }
-    if (FINANCIAL_STATUSES.includes(order.status)) {
-      toast({ title: 'Não é possível excluir', description: 'Pedidos pagos ou em andamento devem ser cancelados, não excluídos.', variant: 'destructive' });
-      return;
-    }
-    setDeleteTarget(order);
+  const handleDelete = async (id: string) => {
+    await deleteOrder(id);
+    toast({ title: 'Pedido excluído', description: 'O pedido foi removido com sucesso.' });
   };
 
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    await deleteOrder(deleteTarget.id);
-    toast({ title: 'Pedido excluído', description: `Pedido ${deleteTarget.orderNumber} removido.` });
-    setDeleteTarget(null);
-    setDeleting(false);
-  };
-
-  const handleRepasseToggle = async (order: Order) => {
-    if (!FINANCIAL_STATUSES.includes(order.status)) {
-      toast({ title: 'Repasse indisponível', description: 'O pedido precisa estar pago para confirmar repasse.', variant: 'destructive' });
-      return;
-    }
-    const repasseAmount = order.supplierTotalAmount || 0;
-    await updateRepasse(order.id, !order.repasseCompleted, repasseAmount);
-    toast({
-      title: order.repasseCompleted ? 'Repasse revertido' : 'Repasse confirmado',
-      description: order.repasseCompleted
-        ? 'Repasse marcado como pendente.'
-        : `Repasse de R$ ${repasseAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} confirmado.`,
-    });
-  };
+  const totalSchool = orders.reduce((s, o) => s + o.totalAmount, 0);
+  const totalSupplier = orders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
+  const totalProfit = totalSchool - totalSupplier;
+  const pendingProfit = orders.filter(o => o.status === 'pending').reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
+  const settledProfit = totalProfit - pendingProfit;
 
   if (loading) {
     return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64" /></div>;
@@ -82,7 +77,41 @@ const Orders = () => {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {isSupplier && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><DollarSign className="w-5 h-5 text-primary" /></div>
+              <div><p className="text-xs text-muted-foreground">Total Vendido (Escola)</p><p className="text-lg font-bold">R$ {totalSchool.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><DollarSign className="w-5 h-5 text-blue-700" /></div>
+              <div><p className="text-xs text-muted-foreground">Custo Fornecedor</p><p className="text-lg font-bold">R$ {totalSupplier.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center"><TrendingUp className="w-5 h-5 text-green-700" /></div>
+              <div><p className="text-xs text-muted-foreground">Diferença (Lucro)</p><p className="text-lg font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+            </CardContent>
+          </Card>
+          <Card className="border-yellow-300 bg-yellow-50/50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center"><ArrowRightLeft className="w-5 h-5 text-yellow-700" /></div>
+              <div><p className="text-xs text-muted-foreground font-medium">Pendente Repasse</p><p className="text-lg font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+            </CardContent>
+          </Card>
+          <Card className="border-green-300 bg-green-50/50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center"><DollarSign className="w-5 h-5 text-green-700" /></div>
+              <div><p className="text-xs text-muted-foreground font-medium">Lucro Repassado</p><p className="text-lg font-bold text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold">Pedidos</h2>
@@ -93,24 +122,22 @@ const Orders = () => {
         )}
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar por aluno, nº pedido ou turma..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Buscar por aluno ou nº do pedido..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os Status</SelectItem>
-            {ALL_STATUSES.map(s => (
-              <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-            ))}
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="pending">Pendente</SelectItem>
+            <SelectItem value="production">Em Produção</SelectItem>
+            <SelectItem value="delivered">Entregue</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Orders table */}
       <Card>
         <CardContent className="p-0">
           {filtered.length === 0 ? (
@@ -125,39 +152,41 @@ const Orders = () => {
                     <th className="p-3 hidden md:table-cell">Turma</th>
                     <th className="p-3">Total</th>
                     <th className="p-3">Status</th>
+                    <th className="p-3 hidden md:table-cell">Prazo</th>
                     <th className="p-3 hidden md:table-cell">Data</th>
                     <th className="p-3">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map(order => {
-                    const allowed = getAllowedTransitions(order.status, activeRole as 'admin' | 'supplier');
+                    const deadline = getDeadlineStatus(order.createdAt);
                     return (
                       <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
                         <td className="p-3 font-medium">{order.orderNumber}</td>
                         <td className="p-3">{order.studentName}</td>
                         <td className="p-3 hidden md:table-cell">{order.grade}</td>
+                        <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                         <td className="p-3">
-                          R$ {isAdmin
-                            ? order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-                            : order.supplierTotalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-                          }
-                        </td>
-                        <td className="p-3">
-                          {allowed.length > 0 ? (
-                            <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v as OrderStatus)}>
-                              <SelectTrigger className="h-7 w-40 text-xs"><SelectValue /></SelectTrigger>
+                          {isSupplier ? (
+                            <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v as Order['status'])}>
+                              <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value={order.status}>{STATUS_LABELS[order.status]}</SelectItem>
-                                {allowed.map(s => (
-                                  <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-                                ))}
+                                <SelectItem value="pending">Pendente</SelectItem>
+                                <SelectItem value="production">Em Produção</SelectItem>
+                                <SelectItem value="delivered">Entregue</SelectItem>
                               </SelectContent>
                             </Select>
                           ) : (
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[order.status]}`}>
-                              {STATUS_LABELS[order.status]}
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
+                              {statusLabels[order.status]}
                             </span>
+                          )}
+                        </td>
+                        <td className="p-3 hidden md:table-cell">
+                          {order.status !== 'delivered' ? (
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${deadline.color}`}>{deadline.label}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Entregue</span>
                           )}
                         </td>
                         <td className="p-3 hidden md:table-cell text-muted-foreground">
@@ -165,22 +194,14 @@ const Orders = () => {
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-1">
-                            {isAdmin && FINANCIAL_STATUSES.includes(order.status) && (
-                              <Button
-                                size="icon"
-                                variant={order.repasseCompleted ? 'default' : 'ghost'}
-                                className={`h-8 w-8 ${order.repasseCompleted ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                                onClick={() => handleRepasseToggle(order)}
-                                title={order.repasseCompleted ? 'Repasse confirmado — clique para reverter' : 'Confirmar repasse ao fornecedor'}
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                              </Button>
+                            {order.status !== 'pending' && (
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 mr-1">Repassado</span>
                             )}
                             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
                               <Eye className="w-4 h-4" />
                             </Button>
                             {isAdmin && (
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDeleteClick(order)}>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(order.id)}>
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             )}
@@ -196,7 +217,6 @@ const Orders = () => {
         </CardContent>
       </Card>
 
-      {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -209,30 +229,11 @@ const Orders = () => {
                 <div><span className="text-muted-foreground">Turma:</span><br />{selectedOrder.grade}</div>
                 {selectedOrder.responsibleName && <div><span className="text-muted-foreground">Responsável:</span><br />{selectedOrder.responsibleName}</div>}
                 {selectedOrder.phone && <div><span className="text-muted-foreground">Telefone:</span><br />{selectedOrder.phone}</div>}
-                <div><span className="text-muted-foreground">Data:</span><br />{new Date(selectedOrder.createdAt).toLocaleDateString('pt-BR')}</div>
+                <div><span className="text-muted-foreground">Data do Pedido:</span><br />{new Date(selectedOrder.createdAt).toLocaleDateString('pt-BR')}</div>
                 <div>
-                  <span className="text-muted-foreground">Status:</span><br />
-                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[selectedOrder.status]}`}>
-                    {STATUS_LABELS[selectedOrder.status]}
-                  </span>
+                  <span className="text-muted-foreground">Prazo de Entrega:</span><br />
+                  {(() => { const d = new Date(selectedOrder.createdAt); d.setDate(d.getDate() + DELIVERY_DAYS); return d.toLocaleDateString('pt-BR'); })()}
                 </div>
-                {/* Repasse info in detail dialog */}
-                {FINANCIAL_STATUSES.includes(selectedOrder.status) && (
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">Repasse:</span><br />
-                    <span className={`text-xs font-medium ${selectedOrder.repasseCompleted ? 'text-green-600' : 'text-yellow-600'}`}>
-                      {selectedOrder.repasseCompleted ? 'Confirmado' : 'Pendente'}
-                    </span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      R$ {(selectedOrder.supplierTotalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                    {selectedOrder.repasseCompleted && selectedOrder.repasseDate && (
-                      <span className="text-xs text-muted-foreground ml-2">
-                        em {new Date(selectedOrder.repasseDate).toLocaleDateString('pt-BR')}
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
               <div>
                 <p className="font-semibold mb-2">Itens do Pedido</p>
@@ -244,12 +245,8 @@ const Orders = () => {
                         <td className="py-1.5">{item.productName}</td>
                         <td className="py-1.5">{item.size}</td>
                         <td className="py-1.5 text-right">{item.quantity}</td>
-                        <td className="py-1.5 text-right">
-                          R$ {isAdmin ? item.unitPrice.toFixed(2) : item.supplierPrice.toFixed(2)}
-                        </td>
-                        <td className="py-1.5 text-right font-medium">
-                          R$ {isAdmin ? item.total.toFixed(2) : item.supplierTotal.toFixed(2)}
-                        </td>
+                        <td className="py-1.5 text-right">R$ {item.unitPrice.toFixed(2)}</td>
+                        <td className="py-1.5 text-right font-medium">R$ {item.total.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -257,48 +254,10 @@ const Orders = () => {
               </div>
               <div className="flex justify-between items-center pt-2 border-t font-semibold">
                 <span>Total</span>
-                <span className="text-primary text-lg">
-                  R$ {isAdmin
-                    ? selectedOrder.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-                    : selectedOrder.supplierTotalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-                  }
-                </span>
+                <span className="text-primary text-lg">R$ {selectedOrder.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => !deleting && setDeleteTarget(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="w-5 h-5" /> Confirmar Exclusão
-            </DialogTitle>
-            <DialogDescription>
-              Esta ação é irreversível e pode afetar registros financeiros.
-            </DialogDescription>
-          </DialogHeader>
-          {deleteTarget && (
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-2 p-3 bg-muted rounded-lg">
-                <div><span className="text-muted-foreground">Pedido:</span> <strong>{deleteTarget.orderNumber}</strong></div>
-                <div><span className="text-muted-foreground">Aluno:</span> <strong>{deleteTarget.studentName}</strong></div>
-                <div><span className="text-muted-foreground">Itens:</span> {deleteTarget.items.length}</div>
-                <div><span className="text-muted-foreground">Total:</span> <strong>R$ {deleteTarget.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-              </div>
-              <p className="text-xs text-destructive font-medium">
-                ⚠️ Todos os dados do pedido serão removidos permanentemente.
-              </p>
-            </div>
-          )}
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancelar</Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
-              {deleting ? 'Excluindo...' : 'Confirmar Exclusão'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

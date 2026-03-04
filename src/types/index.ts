@@ -30,7 +30,7 @@ export interface OrderItem {
   supplierTotal: number;
 }
 
-export type OrderStatus = 'awaiting_payment' | 'paid' | 'in_production' | 'ready' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'production' | 'delivered';
 
 export interface Order {
   id: string;
@@ -45,9 +45,4 @@ export interface Order {
   status: OrderStatus;
   createdAt: string;
   createdBy: string;
-  supplierId: string | null;
-  repasseCompleted: boolean;
-  repasseDate: string | null;
-  repasseAmount: number;
-  repasseConfirmedBy: string | null;
 }

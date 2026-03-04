@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders, OrderItem } from '@/hooks/useOrders';
@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, ShoppingCart } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/integrations/supabase/client';
 
 const NewOrder = () => {
   const { user } = useAuth();
@@ -24,27 +23,12 @@ const NewOrder = () => {
   const [grade, setGrade] = useState('');
   const [responsibleName, setResponsibleName] = useState('');
   const [phone, setPhone] = useState('');
-  const [supplierId, setSupplierId] = useState('');
   const [items, setItems] = useState<OrderItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [suppliers, setSuppliers] = useState<{id: string; name: string}[]>([]);
 
   const [selProduct, setSelProduct] = useState('');
   const [selSize, setSelSize] = useState('');
   const [selQty, setSelQty] = useState(1);
-
-  // Fetch suppliers (users with supplier role)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    (async () => {
-      const { data: roleRows } = await supabase.from('user_roles').select('user_id').eq('role', 'supplier');
-      if (roleRows && roleRows.length > 0) {
-        const userIds = roleRows.map(r => r.user_id);
-        const { data: profiles } = await supabase.from('profiles').select('user_id, name').in('user_id', userIds);
-        setSuppliers((profiles || []).map(p => ({ id: p.user_id, name: p.name })));
-      }
-    })();
-  }, []);
 
   const selectedProduct = products.find(p => p.id === selProduct);
   const selectedVariant = selectedProduct?.variants.find(v => v.size === selSize);
@@ -91,9 +75,8 @@ const NewOrder = () => {
       items,
       totalAmount,
       supplierTotalAmount,
-      status: 'awaiting_payment',
+      status: 'pending',
       createdBy: user?.id || '',
-      supplierId: supplierId && supplierId !== 'none' ? supplierId : null,
     });
     toast({ title: 'Pedido criado!', description: 'O pedido foi registrado com sucesso.' });
     navigate('/orders');
@@ -129,18 +112,6 @@ const NewOrder = () => {
             <div className="space-y-2">
               <Label>Telefone <span className="text-muted-foreground text-xs">(opcional)</span></Label>
               <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Fornecedor <span className="text-muted-foreground text-xs">(opcional)</span></Label>
-              <Select value={supplierId} onValueChange={setSupplierId}>
-                <SelectTrigger><SelectValue placeholder="Selecione um fornecedor" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem fornecedor</SelectItem>
-                  {suppliers.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </CardContent>
         </Card>
