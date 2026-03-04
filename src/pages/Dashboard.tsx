@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, CheckCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Financial statuses: only non-cancelled, paid+ orders count
 const REVENUE_STATUSES: OrderStatus[] = ['paid', 'in_production', 'ready', 'delivered'];
 
 const Dashboard = () => {
@@ -11,23 +12,15 @@ const Dashboard = () => {
   const { orders, loading } = useOrders();
   const isAdmin = user?.activeRole === 'admin';
 
+  // Paid = Confirmed. No pending/confirmed split based on repasse.
   const revenueOrders = orders.filter(o => REVENUE_STATUSES.includes(o.status));
   const totalRevenue = revenueOrders.reduce((s, o) => s + o.totalAmount, 0);
   const totalSupplierCost = revenueOrders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
-  const totalProfit = totalRevenue - totalSupplierCost;
-  const confirmedProfit = revenueOrders
-    .filter(o => o.repasseCompleted)
-    .reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
-  const pendingProfit = revenueOrders
-    .filter(o => !o.repasseCompleted)
-    .reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
+  const confirmedProfit = totalRevenue - totalSupplierCost;
 
-  // Supplier-specific repasse metrics (RLS already filters by supplier_id)
-  const supplierPendingRepasse = !isAdmin
-    ? revenueOrders.filter(o => !o.repasseCompleted).reduce((s, o) => s + (o.supplierTotalAmount || 0), 0)
-    : 0;
-  const supplierConfirmedRepasse = !isAdmin
-    ? revenueOrders.filter(o => o.repasseCompleted).reduce((s, o) => s + (o.supplierTotalAmount || 0), 0)
+  // Supplier: total repasse = sum of supplier amounts from revenue orders (RLS filters by supplier_id)
+  const supplierRepasseTotal = !isAdmin
+    ? revenueOrders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0)
     : 0;
 
   const awaitingPayment = orders.filter(o => o.status === 'awaiting_payment').length;
