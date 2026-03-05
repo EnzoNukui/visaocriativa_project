@@ -80,6 +80,36 @@ export type Database = {
         }
         Relationships: []
       }
+      import_logs: {
+        Row: {
+          file_name: string
+          id: string
+          imported_at: string
+          imported_by: string
+          total_errors: number
+          total_rows: number
+          total_success: number
+        }
+        Insert: {
+          file_name: string
+          id?: string
+          imported_at?: string
+          imported_by: string
+          total_errors?: number
+          total_rows?: number
+          total_success?: number
+        }
+        Update: {
+          file_name?: string
+          id?: string
+          imported_at?: string
+          imported_by?: string
+          total_errors?: number
+          total_rows?: number
+          total_success?: number
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           id: string
