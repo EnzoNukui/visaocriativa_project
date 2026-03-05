@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft } from 'lucide-react';
+import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import ImportOrdersDialog from '@/components/ImportOrdersDialog';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendente',
