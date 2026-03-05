@@ -301,6 +301,10 @@ const Orders = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {isAdmin && (
+        <ImportOrdersDialog open={importOpen} onOpenChange={setImportOpen} onComplete={refresh} />
+      )}
     </div>
   );
 };
