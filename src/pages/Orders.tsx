@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft } from 'lucide-react';
+import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import ImportOrdersDialog from '@/components/ImportOrdersDialog';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendente',
@@ -48,7 +49,7 @@ function getDeadlineStatus(createdAt: string) {
 
 const Orders = () => {
   const { user } = useAuth();
-  const { orders, loading, updateStatus, updateRepasseCompleted, deleteOrder } = useOrders();
+  const { orders, loading, updateStatus, updateRepasseCompleted, deleteOrder, refresh } = useOrders();
   const { toast } = useToast();
   const isAdmin = user?.activeRole === 'admin';
   const isSupplier = user?.activeRole === 'supplier';
@@ -56,6 +57,7 @@ const Orders = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const filtered = orders.filter(o => {
     const matchSearch = o.studentName.toLowerCase().includes(search.toLowerCase()) ||
@@ -134,7 +136,12 @@ const Orders = () => {
           <p className="text-sm text-muted-foreground">{filtered.length} pedido(s) encontrado(s)</p>
         </div>
         {isAdmin && (
-          <Button asChild><Link to="/orders/new"><PlusCircle className="w-4 h-4 mr-2" />Novo Pedido</Link></Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />Importar Planilha
+            </Button>
+            <Button asChild><Link to="/orders/new"><PlusCircle className="w-4 h-4 mr-2" />Novo Pedido</Link></Button>
+          </div>
         )}
       </div>
 
@@ -294,6 +301,10 @@ const Orders = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {isAdmin && (
+        <ImportOrdersDialog open={importOpen} onOpenChange={setImportOpen} onComplete={refresh} />
+      )}
     </div>
   );
 };
