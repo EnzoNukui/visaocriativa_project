@@ -49,7 +49,7 @@ function getDeadlineStatus(createdAt: string) {
 
 const Orders = () => {
   const { user } = useAuth();
-  const { orders, loading, updateStatus, updateRepasseCompleted, deleteOrder } = useOrders();
+  const { orders, loading, updateStatus, updateRepasseCompleted, deleteOrder, refresh } = useOrders();
   const { toast } = useToast();
   const isAdmin = user?.activeRole === 'admin';
   const isSupplier = user?.activeRole === 'supplier';
@@ -57,6 +57,7 @@ const Orders = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const filtered = orders.filter(o => {
     const matchSearch = o.studentName.toLowerCase().includes(search.toLowerCase()) ||
