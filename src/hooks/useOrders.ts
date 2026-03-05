@@ -40,53 +40,68 @@ export function useOrders() {
   const { session } = useAuth();
 
   const fetchOrders = useCallback(async () => {
-    const { data: ordersData } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (!ordersData) { setOrders([]); setLoading(false); return; }
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        setLoading(false);
+        return;
+      }
 
-    const orderIds = ordersData.map(o => o.id);
-    const { data: itemsData } = await supabase
-      .from('order_items')
-      .select('*')
-      .in('order_id', orderIds);
+      if (!ordersData || ordersData.length === 0) { setOrders([]); setLoading(false); return; }
 
-    const mapped: Order[] = ordersData.map(o => ({
-      id: o.id,
-      orderNumber: o.order_number,
-      studentName: o.student_name,
-      grade: o.grade,
-      responsibleName: o.responsible_name,
-      phone: o.phone,
-      totalAmount: Number(o.total_amount),
-      supplierTotalAmount: Number(o.supplier_total_amount),
-      schoolProfit: Number(o.school_profit ?? (Number(o.total_amount) - Number(o.supplier_total_amount))),
-      status: o.status,
-      createdAt: o.created_at,
-      createdBy: o.created_by,
-      repasseCompleted: o.repasse_completed,
-      repasseDate: o.repasse_date,
-      repasseConfirmedBy: o.repasse_confirmed_by,
-      repasseAmount: Number(o.repasse_amount ?? 0),
-      items: (itemsData || [])
-        .filter(i => i.order_id === o.id)
-        .map(i => ({
-          id: i.id,
-          productId: i.product_id,
-          productName: i.product_name,
-          size: i.size,
-          quantity: i.quantity,
-          unitPrice: Number(i.unit_price),
-          supplierPrice: Number(i.supplier_price),
-          total: Number(i.total),
-          supplierTotal: Number(i.supplier_total),
-        })),
-    }));
+      const orderIds = ordersData.map(o => o.id);
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('order_items')
+        .select('*')
+        .in('order_id', orderIds);
 
-    setOrders(mapped);
-    setLoading(false);
+      if (itemsError) {
+        console.error('Error fetching order items:', itemsError);
+      }
+
+      const mapped: Order[] = ordersData.map(o => ({
+        id: o.id,
+        orderNumber: o.order_number,
+        studentName: o.student_name,
+        grade: o.grade,
+        responsibleName: o.responsible_name,
+        phone: o.phone,
+        totalAmount: Number(o.total_amount),
+        supplierTotalAmount: Number(o.supplier_total_amount),
+        schoolProfit: Number(o.school_profit ?? (Number(o.total_amount) - Number(o.supplier_total_amount))),
+        status: o.status,
+        createdAt: o.created_at,
+        createdBy: o.created_by,
+        repasseCompleted: o.repasse_completed,
+        repasseDate: o.repasse_date,
+        repasseConfirmedBy: o.repasse_confirmed_by,
+        repasseAmount: Number(o.repasse_amount ?? 0),
+        items: (itemsData || [])
+          .filter(i => i.order_id === o.id)
+          .map(i => ({
+            id: i.id,
+            productId: i.product_id,
+            productName: i.product_name,
+            size: i.size,
+            quantity: i.quantity,
+            unitPrice: Number(i.unit_price),
+            supplierPrice: Number(i.supplier_price),
+            total: Number(i.total),
+            supplierTotal: Number(i.supplier_total),
+          })),
+      }));
+
+      setOrders(mapped);
+    } catch (err) {
+      console.error('Unexpected error fetching orders:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -94,42 +109,55 @@ export function useOrders() {
   }, [session, fetchOrders]);
 
   const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'repasseCompleted' | 'repasseDate' | 'repasseConfirmedBy' | 'repasseAmount' | 'schoolProfit'>) => {
-    const schoolProfit = order.totalAmount - order.supplierTotalAmount;
-    const { data, error } = await supabase
-      .from('orders')
-      .insert({
-        student_name: order.studentName,
-        grade: order.grade,
-        responsible_name: order.responsibleName,
-        phone: order.phone,
-        total_amount: order.totalAmount,
-        supplier_total_amount: order.supplierTotalAmount,
-        school_profit: schoolProfit,
-        repasse_amount: order.supplierTotalAmount,
-        status: order.status,
-        created_by: order.createdBy,
-        order_number: 'TEMP',
-      })
-      .select()
-      .single();
+    try {
+      const schoolProfit = order.totalAmount - order.supplierTotalAmount;
+      const { data, error } = await supabase
+        .from('orders')
+        .insert({
+          student_name: order.studentName,
+          grade: order.grade,
+          responsible_name: order.responsibleName,
+          phone: order.phone,
+          total_amount: order.totalAmount,
+          supplier_total_amount: order.supplierTotalAmount,
+          school_profit: schoolProfit,
+          repasse_amount: order.supplierTotalAmount,
+          status: order.status,
+          created_by: order.createdBy,
+          order_number: 'TEMP',
+        })
+        .select()
+        .single();
 
-    if (error || !data) return null;
+      if (error) {
+        console.error('Error creating order:', error);
+        return null;
+      }
+      if (!data) return null;
 
-    const itemsToInsert = order.items.map(i => ({
-      order_id: data.id,
-      product_id: i.productId,
-      product_name: i.productName,
-      size: i.size,
-      quantity: i.quantity,
-      unit_price: i.unitPrice,
-      supplier_price: i.supplierPrice,
-      total: i.total,
-      supplier_total: i.supplierTotal,
-    }));
+      const itemsToInsert = order.items.map(i => ({
+        order_id: data.id,
+        product_id: i.productId,
+        product_name: i.productName,
+        size: i.size,
+        quantity: i.quantity,
+        unit_price: i.unitPrice,
+        supplier_price: i.supplierPrice,
+        total: i.total,
+        supplier_total: i.supplierTotal,
+      }));
 
-    await supabase.from('order_items').insert(itemsToInsert);
-    await fetchOrders();
-    return data;
+      const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert);
+      if (itemsError) {
+        console.error('Error creating order items:', itemsError);
+      }
+
+      await fetchOrders();
+      return data;
+    } catch (err) {
+      console.error('Unexpected error creating order:', err);
+      return null;
+    }
   }, [fetchOrders]);
 
   const updateStatus = useCallback(async (id: string, status: string) => {
