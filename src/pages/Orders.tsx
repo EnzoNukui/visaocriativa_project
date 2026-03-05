@@ -136,7 +136,12 @@ const Orders = () => {
           <p className="text-sm text-muted-foreground">{filtered.length} pedido(s) encontrado(s)</p>
         </div>
         {isAdmin && (
-          <Button asChild><Link to="/orders/new"><PlusCircle className="w-4 h-4 mr-2" />Novo Pedido</Link></Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />Importar Planilha
+            </Button>
+            <Button asChild><Link to="/orders/new"><PlusCircle className="w-4 h-4 mr-2" />Novo Pedido</Link></Button>
+          </div>
         )}
       </div>
 
