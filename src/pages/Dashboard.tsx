@@ -34,7 +34,7 @@ const Dashboard = () => {
   const totalProfit = totalRevenue - totalSupplierCost;
   const pendingProfit = nonCancelled.filter(o => !o.repasseCompleted).reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
   const settledProfit = totalProfit - pendingProfit;
-  const pending = orders.filter(o => o.status === 'pending').length;
+  const pending = orders.filter(o => o.status === 'pending' || o.status === 'awaiting_payment').length;
   const production = orders.filter(o => o.status === 'production').length;
 
   const isSupplier = user?.activeRole === 'supplier';

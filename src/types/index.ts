@@ -30,7 +30,7 @@ export interface OrderItem {
   supplierTotal: number;
 }
 
-export type OrderStatus = 'pending' | 'production' | 'delivered';
+export type OrderStatus = 'pending' | 'awaiting_payment' | 'production' | 'ready' | 'delivered' | 'paid' | 'cancelled';
 
 export interface Order {
   id: string;

@@ -67,19 +67,29 @@ const NewOrder = () => {
       return;
     }
     setSubmitting(true);
-    await addOrder({
-      studentName,
-      grade,
-      responsibleName,
-      phone,
-      items,
-      totalAmount,
-      supplierTotalAmount,
-      status: 'pending',
-      createdBy: user?.id || '',
-    });
-    toast({ title: 'Pedido criado!', description: 'O pedido foi registrado com sucesso.' });
-    navigate('/orders');
+    try {
+      const result = await addOrder({
+        studentName: studentName.trim(),
+        grade: grade.trim(),
+        responsibleName: responsibleName.trim(),
+        phone: phone.trim(),
+        items,
+        totalAmount,
+        supplierTotalAmount,
+        status: 'awaiting_payment',
+        createdBy: user?.id ?? null,
+      });
+      if (!result) {
+        throw new Error('Order creation returned no result');
+      }
+      toast({ title: 'Pedido criado com sucesso!', description: `Pedido registrado para ${studentName.trim()}.` });
+      navigate('/orders');
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast({ title: 'Erro ao criar pedido', description: 'Não foi possível registrar o pedido.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (productsLoading) {

@@ -7,21 +7,55 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Upload, AlertTriangle, CheckCircle, XCircle, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-interface ImportRow {
-  studentName: string;
-  productName: string;
-  quantity: number;
-  rowIndex: number;
-}
+// --- Constants ---
+
+const ignoredProducts = ['regata', 'bermuda ciclista', 'blusa canguru'];
+
+const productAliases: Record<string, string> = {
+  'barmuda masculina': 'bermuda masculina',
+  'mermuda masculina': 'bermuda masculina',
+  'barmuda': 'bermuda masculina',
+  'mermuda': 'bermuda masculina',
+  'calça moetom': 'calça moletom',
+  'blisa college': 'blusa college',
+  'manga longa': 'camiseta manga longa',
+  'camiseta manga longa': 'camiseta manga longa',
+  'bermuda dry fit': 'bermuda dry fit',
+  'camiseta dry fit': 'camiseta dry fit',
+  'saia shorts': 'saia shorts',
+  'calça bailarina': 'calça bailarina',
+  'blusa moletom': 'blusa moletom',
+  'blusa college': 'blusa college',
+  'baby look': 'baby look',
+  'bermuda masculina': 'bermuda masculina',
+  'calça moletom': 'calça moletom',
+  'camiseta': 'camiseta',
+};
+
+const skipKeywords = [
+  'obs:', 'descontar', 'repasse', 'pago para', 'recebemos',
+  'encomendado', 'falta r$', 'foi pedido', 'estava pendente',
+  'pagamento', 'porém', 'deverá', 'conforme', 'desconto',
+];
+
+const validSizes = ['4', '6', '8', '10', '12', '14', '16', 'P', 'M', 'G', 'GG', 'PP', 'EG'];
+
+// --- Types ---
 
 interface ValidationError {
   row: number;
+  student: string;
   reason: string;
 }
 
+interface Warning {
+  student: string;
+  message: string;
+}
+
 interface ResolvedItem {
+  studentKey: string;
   studentName: string;
-  normalizedName: string;
   productName: string;
   productId: string;
   size: string;
@@ -35,6 +69,7 @@ interface ResolvedItem {
 
 interface GroupedOrder {
   studentName: string;
+  studentKey: string;
   items: ResolvedItem[];
   totalSale: number;
   totalSupplier: number;
@@ -47,9 +82,57 @@ interface Props {
   onComplete: () => void;
 }
 
+// --- Helpers ---
+
 function normalizeName(name: string): string {
   return name.trim().replace(/\s+/g, ' ');
 }
+
+function normalizeSize(raw: any): string {
+  if (raw === null || raw === undefined) return '';
+  const str = String(raw).trim();
+  if (/^\d+\.0$/.test(str)) return str.replace('.0', '');
+  return str.toUpperCase().trim();
+}
+
+function isStudentHeader(cellA: string): string | null {
+  const trimmed = cellA.trim();
+  if (trimmed.toLowerCase().startsWith('pedido ')) {
+    return trimmed.substring(7).trim();
+  }
+  return null;
+}
+
+function shouldSkipRow(colA: string): boolean {
+  if (!colA) return true;
+  if (colA.length > 60) return true;
+  const lower = colA.toLowerCase().trim();
+  if (lower === 'modelo') return true;
+  return skipKeywords.some(kw => lower.includes(kw));
+}
+
+function getFallbackPrice(product: { id: string; name: string; variants: { size: string; price: number; supplier_price: number }[] }, size: string) {
+  const exactVariant = product.variants.find(
+    (v) => v.size.trim().toUpperCase() === size.trim().toUpperCase()
+  );
+  if (exactVariant) return { variant: exactVariant, fallback: false };
+
+  const numericSize = parseInt(size);
+  if (!isNaN(numericSize)) {
+    const numericVariants = product.variants
+      .filter((v) => !isNaN(parseInt(v.size)))
+      .sort((a, b) =>
+        Math.abs(parseInt(a.size) - numericSize) -
+        Math.abs(parseInt(b.size) - numericSize)
+      );
+    if (numericVariants.length > 0) return { variant: numericVariants[0], fallback: true };
+  }
+
+  if (product.variants.length > 0) return { variant: product.variants[0], fallback: true };
+  return null;
+}
+
+// --- Component ---
 
 export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: Props) {
   const { user } = useAuth();
@@ -59,9 +142,11 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
   const [step, setStep] = useState<'upload' | 'preview' | 'processing' | 'done'>('upload');
   const [fileName, setFileName] = useState('');
   const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [warnings, setWarnings] = useState<Warning[]>([]);
   const [groupedOrders, setGroupedOrders] = useState<GroupedOrder[]>([]);
   const [totalRows, setTotalRows] = useState(0);
-  const [validRows, setValidRows] = useState(0);
+  const [totalSheets, setTotalSheets] = useState(0);
+  const [totalSkipped, setTotalSkipped] = useState(0);
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const [resultSummary, setResultSummary] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
 
@@ -69,9 +154,11 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
     setStep('upload');
     setFileName('');
     setErrors([]);
+    setWarnings([]);
     setGroupedOrders([]);
     setTotalRows(0);
-    setValidRows(0);
+    setTotalSheets(0);
+    setTotalSkipped(0);
     setDuplicateWarning('');
     setResultSummary(null);
     if (fileRef.current) fileRef.current.value = '';
@@ -88,7 +175,7 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
 
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (ext !== 'xlsx' && ext !== 'csv') {
-      toast({ title: 'Formato inválido', description: 'Formato de arquivo inválido. Envie um arquivo .xlsx ou .csv.', variant: 'destructive' });
+      toast({ title: 'Formato inválido', description: 'Formato inválido. Use .xlsx ou .csv', variant: 'destructive' });
       return;
     }
 
@@ -97,31 +184,24 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
-
-      if (json.length > 1000) {
-        toast({ title: 'Limite excedido', description: 'O arquivo excede o máximo de 1000 linhas permitidas.', variant: 'destructive' });
-        return;
-      }
-
-      setTotalRows(json.length);
-      await processRows(json, file.name);
+      await processWorkbook(workbook, file.name);
     } catch {
       toast({ title: 'Erro ao ler arquivo', description: 'Não foi possível processar o arquivo.', variant: 'destructive' });
     }
   };
 
-  const findColumn = (row: Record<string, unknown>, candidates: string[]): string => {
-    for (const key of Object.keys(row)) {
-      const lower = key.toLowerCase().trim();
-      if (candidates.some(c => lower.includes(c))) return key;
-    }
-    return '';
-  };
+  const processWorkbook = async (workbook: XLSX.WorkBook, fName: string) => {
+    // Find target sheets
+    const targetSheets = workbook.SheetNames.filter(name =>
+      name.trim().toLowerCase().includes('por nome')
+    );
 
-  const processRows = async (json: Record<string, unknown>[], fName: string) => {
-    // Fetch products
+    if (targetSheets.length === 0) {
+      toast({ title: 'Erro', description: "Nenhuma aba 'Pedido por nome' encontrada no arquivo.", variant: 'destructive' });
+      return;
+    }
+
+    // Fetch products with variants
     const { data: products } = await supabase.from('products').select('id, name');
     const { data: variants } = await supabase.from('product_variants').select('*');
     if (!products || !variants) {
@@ -129,78 +209,157 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       return;
     }
 
-    const productMap = new Map(products.map(p => [p.name.toLowerCase(), p]));
+    const productsWithVariants = products.map(p => ({
+      ...p,
+      variants: variants.filter(v => v.product_id === p.id),
+    }));
 
-    const validationErrors: ValidationError[] = [];
-    const resolvedItems: ResolvedItem[] = [];
+    const allErrors: ValidationError[] = [];
+    const allWarnings: Warning[] = [];
+    const allItems: ResolvedItem[] = [];
+    let rowCount = 0;
+    let skippedCount = 0;
 
-    // Detect columns from first row
-    const firstRow = json[0] || {};
-    const studentCol = findColumn(firstRow, ['aluno', 'student', 'nome do aluno', 'nome']);
-    const productCol = findColumn(firstRow, ['produto', 'product', 'nome do produto']);
-    const qtyCol = findColumn(firstRow, ['quantidade', 'quantity', 'qtd', 'qty']);
+    for (const sheetName of targetSheets) {
+      const sheet = workbook.Sheets[sheetName];
+      const rawRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: null });
 
-    if (!studentCol || !productCol || !qtyCol) {
-      toast({
-        title: 'Colunas não encontradas',
-        description: 'O arquivo deve conter colunas: Aluno (ou Student Name), Produto (ou Product Name), Quantidade (ou Quantity).',
-        variant: 'destructive'
-      });
+      let currentStudent: string | null = null;
+      const sheetTag = sheetName.trim();
+
+      for (let rowIdx = 0; rowIdx < rawRows.length; rowIdx++) {
+        const row = rawRows[rowIdx] as any[];
+        if (!row || row.every(c => c === null || c === undefined || String(c).trim() === '')) {
+          currentStudent = null;
+          continue;
+        }
+
+        const colA = row[0] != null ? String(row[0]).trim() : '';
+        const colB = row[1];
+        const colC = row[2];
+
+        // Check student header
+        const studentName = isStudentHeader(colA);
+        if (studentName) {
+          currentStudent = normalizeName(studentName);
+          continue;
+        }
+
+        // Skip rows with no student context
+        if (!currentStudent) continue;
+
+        // Skip if colB and colC both empty (not a product row)
+        if ((colB === null || colB === undefined || String(colB).trim() === '') &&
+            (colC === null || colC === undefined || String(colC).trim() === '')) {
+          continue;
+        }
+
+        rowCount++;
+
+        // Skip rows matching ignore rules
+        if (shouldSkipRow(colA)) {
+          skippedCount++;
+          continue;
+        }
+
+        if (!colA) {
+          allErrors.push({ row: rowIdx + 1, student: currentStudent, reason: 'Nome do produto vazio' });
+          continue;
+        }
+
+        // Parse size
+        const size = normalizeSize(colB);
+
+        // Parse quantity
+        const rawQty = colC;
+        if (rawQty === null || rawQty === undefined || String(rawQty).trim() === '') {
+          allErrors.push({ row: rowIdx + 1, student: currentStudent, reason: 'Quantidade inválida' });
+          continue;
+        }
+        const parsedQty = Number(String(rawQty).trim());
+        if (isNaN(parsedQty) || !isFinite(parsedQty)) {
+          allErrors.push({ row: rowIdx + 1, student: currentStudent, reason: `Quantidade inválida: ${rawQty}` });
+          continue;
+        }
+        if (parsedQty <= 0) {
+          allErrors.push({ row: rowIdx + 1, student: currentStudent, reason: 'Quantidade deve ser maior que zero' });
+          continue;
+        }
+        const qty = Math.floor(parsedQty);
+
+        // Normalize product name
+        let productNameNorm = colA.toLowerCase().trim();
+
+        // Check ignored products
+        if (ignoredProducts.includes(productNameNorm)) {
+          skippedCount++;
+          continue;
+        }
+
+        // Apply aliases
+        if (productAliases[productNameNorm]) {
+          productNameNorm = productAliases[productNameNorm];
+        }
+
+        // Match product
+        let matchedProduct = productsWithVariants.find(p => p.name.toLowerCase() === productNameNorm);
+
+        if (!matchedProduct) {
+          // Contains match
+          matchedProduct = productsWithVariants.find(p =>
+            productNameNorm.includes(p.name.toLowerCase()) ||
+            p.name.toLowerCase().includes(productNameNorm)
+          );
+        }
+
+        if (!matchedProduct) {
+          allErrors.push({ row: rowIdx + 1, student: currentStudent, reason: `Produto não encontrado: ${colA}` });
+          continue;
+        }
+
+        // Get variant with fallback
+        const result = getFallbackPrice(matchedProduct, size);
+        if (!result) {
+          allErrors.push({ row: rowIdx + 1, student: currentStudent, reason: `Produto sem variantes/preço: ${colA}` });
+          continue;
+        }
+
+        if (result.fallback) {
+          allWarnings.push({
+            student: currentStudent,
+            message: `⚠️ ${matchedProduct.name} tamanho ${size} não cadastrado — usando tamanho ${result.variant.size} como referência de preço. Verifique o valor após importar.`,
+          });
+        }
+
+        const unitPrice = Number(result.variant.price);
+        const supplierPrice = Number(result.variant.supplier_price);
+        const studentKey = `${currentStudent.toLowerCase()}||${sheetTag}`;
+
+        allItems.push({
+          studentKey,
+          studentName: currentStudent,
+          productName: matchedProduct.name,
+          productId: matchedProduct.id,
+          size: size || result.variant.size,
+          quantity: qty,
+          unitPrice,
+          supplierPrice,
+          itemSaleTotal: unitPrice * qty,
+          itemSupplierTotal: supplierPrice * qty,
+          itemProfit: (unitPrice - supplierPrice) * qty,
+        });
+      }
+    }
+
+    if (rowCount > 1000) {
+      toast({ title: 'Limite excedido', description: 'Arquivo excede o limite de 1000 linhas.', variant: 'destructive' });
       return;
     }
 
-    json.forEach((row, idx) => {
-      const rowNum = idx + 2; // +2 for header + 0-index
-      const rawStudent = String(row[studentCol] || '').trim();
-      const rawProduct = String(row[productCol] || '').trim();
-      const rawQty = row[qtyCol];
-
-      if (!rawStudent) { validationErrors.push({ row: rowNum, reason: 'Nome do aluno vazio' }); return; }
-      if (!rawProduct) { validationErrors.push({ row: rowNum, reason: 'Nome do produto vazio' }); return; }
-
-      const qty = Number(rawQty);
-      if (!qty || qty <= 0 || !Number.isFinite(qty)) {
-        validationErrors.push({ row: rowNum, reason: `Quantidade inválida: "${rawQty}"` });
-        return;
-      }
-
-      const product = productMap.get(rawProduct.toLowerCase());
-      if (!product) {
-        validationErrors.push({ row: rowNum, reason: `Produto não encontrado: "${rawProduct}"` });
-        return;
-      }
-
-      // Get first variant for pricing
-      const productVariants = variants.filter(v => v.product_id === product.id);
-      if (productVariants.length === 0) {
-        validationErrors.push({ row: rowNum, reason: `Produto sem variantes/preço: "${rawProduct}"` });
-        return;
-      }
-
-      const variant = productVariants[0];
-      const unitPrice = Number(variant.price);
-      const supplierPrice = Number(variant.supplier_price);
-
-      const normalized = normalizeName(rawStudent);
-      resolvedItems.push({
-        studentName: rawStudent,
-        normalizedName: normalized.toLowerCase(),
-        productName: product.name,
-        productId: product.id,
-        size: variant.size,
-        quantity: Math.floor(qty),
-        unitPrice,
-        supplierPrice,
-        itemSaleTotal: unitPrice * Math.floor(qty),
-        itemSupplierTotal: supplierPrice * Math.floor(qty),
-        itemProfit: (unitPrice - supplierPrice) * Math.floor(qty),
-      });
-    });
-
-    // Merge duplicates (same student + same product)
+    // Merge duplicates (same student + same product + same size)
     const mergedMap = new Map<string, ResolvedItem>();
-    resolvedItems.forEach(item => {
-      const key = `${item.normalizedName}||${item.productId}`;
+    allItems.forEach(item => {
+      const key = `${item.studentKey}||${item.productId}||${item.size}`;
       const existing = mergedMap.get(key);
       if (existing) {
         existing.quantity += item.quantity;
@@ -215,17 +374,18 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
     // Group by student
     const studentGroups = new Map<string, ResolvedItem[]>();
     mergedMap.forEach(item => {
-      const group = studentGroups.get(item.normalizedName) || [];
+      const group = studentGroups.get(item.studentKey) || [];
       group.push(item);
-      studentGroups.set(item.normalizedName, group);
+      studentGroups.set(item.studentKey, group);
     });
 
     const grouped: GroupedOrder[] = [];
-    studentGroups.forEach((items, _key) => {
+    studentGroups.forEach((items) => {
       const totalSale = items.reduce((s, i) => s + i.itemSaleTotal, 0);
       const totalSupplier = items.reduce((s, i) => s + i.itemSupplierTotal, 0);
       grouped.push({
         studentName: items[0].studentName,
+        studentKey: items[0].studentKey,
         items,
         totalSale,
         totalSupplier,
@@ -239,7 +399,7 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       .from('import_logs')
       .select('*')
       .eq('file_name', fName)
-      .eq('total_rows', json.length)
+      .eq('total_rows', rowCount)
       .gte('imported_at', today + 'T00:00:00')
       .lte('imported_at', today + 'T23:59:59');
 
@@ -249,9 +409,12 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       setDuplicateWarning('');
     }
 
-    setErrors(validationErrors);
+    setErrors(allErrors);
+    setWarnings(allWarnings);
     setGroupedOrders(grouped);
-    setValidRows(resolvedItems.length);
+    setTotalRows(rowCount);
+    setTotalSheets(targetSheets.length);
+    setTotalSkipped(skippedCount);
     setStep('preview');
   };
 
@@ -263,36 +426,51 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
     let failCount = 0;
     const failErrors: string[] = [];
 
+    // Get current highest order number
+    const { data: lastOrder } = await supabase
+      .from('orders')
+      .select('order_number')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let lastNumber = lastOrder?.order_number
+      ? parseInt(lastOrder.order_number.replace('VC-', ''))
+      : 0;
+
     for (const group of groupedOrders) {
       try {
-        // Create order
+        lastNumber++;
+        const orderNumber = `VC-${String(lastNumber).padStart(4, '0')}`;
+
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .insert({
             student_name: normalizeName(group.studentName),
-            grade: '-',
-            responsible_name: '-',
-            phone: '-',
+            grade: '',
+            responsible_name: '',
+            phone: '',
             total_amount: group.totalSale,
             supplier_total_amount: group.totalSupplier,
             school_profit: group.totalProfit,
             repasse_amount: group.totalSupplier,
             status: 'awaiting_payment',
             created_by: user.id,
-            order_number: 'TEMP',
+            order_number: orderNumber,
           })
-          .select()
-          .single();
+          .select();
 
-        if (orderError || !orderData) {
-          failCount += group.items.reduce((s, i) => s + 1, 0);
+        if (orderError || !orderData || orderData.length === 0) {
+          failCount++;
           failErrors.push(`Erro ao criar pedido para ${group.studentName}: ${orderError?.message || 'desconhecido'}`);
+          lastNumber--; // revert number
           continue;
         }
 
-        // Insert items
+        const newOrder = orderData[0];
+
         const itemsToInsert = group.items.map(item => ({
-          order_id: orderData.id,
+          order_id: newOrder.id,
           product_id: item.productId,
           product_name: item.productName,
           size: item.size,
@@ -306,26 +484,30 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
         const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert);
         if (itemsError) {
           failErrors.push(`Erro nos itens de ${group.studentName}: ${itemsError.message}`);
-          failCount += group.items.length;
+          failCount++;
         } else {
-          successCount += group.items.length;
+          successCount++;
         }
       } catch (err: any) {
-        failCount += group.items.length;
+        failCount++;
         failErrors.push(`Erro inesperado para ${group.studentName}: ${err?.message || 'desconhecido'}`);
       }
     }
 
-    // Log import
-    await supabase.from('import_logs').insert({
-      imported_by: user.id,
-      file_name: fileName,
-      total_rows: totalRows,
-      total_success: successCount,
-      total_errors: errors.length + failCount,
-    });
+    // Log import (non-blocking)
+    try {
+      await supabase.from('import_logs').insert({
+        imported_by: user.id,
+        file_name: fileName,
+        total_rows: totalRows,
+        total_success: successCount,
+        total_errors: errors.length + failCount,
+      });
+    } catch {
+      console.error('Failed to save import log');
+    }
 
-    setResultSummary({ success: successCount, failed: errors.length + failCount, errors: failErrors });
+    setResultSummary({ success: successCount, failed: failCount, errors: failErrors });
     setStep('done');
     onComplete();
   };
@@ -343,20 +525,12 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
         {step === 'upload' && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Selecione um arquivo .xlsx ou .csv com as colunas: <strong>Aluno</strong>, <strong>Produto</strong>, <strong>Quantidade</strong>.
+              Selecione um arquivo .xlsx ou .csv com abas contendo "por nome" no título.
             </p>
             <div className="border-2 border-dashed rounded-lg p-8 text-center">
               <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".xlsx,.csv"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <Button variant="outline" onClick={() => fileRef.current?.click()}>
-                Selecionar Arquivo
-              </Button>
+              <input ref={fileRef} type="file" accept=".xlsx,.csv" onChange={handleFileSelect} className="hidden" />
+              <Button variant="outline" onClick={() => fileRef.current?.click()}>Selecionar Arquivo</Button>
             </div>
           </div>
         )}
@@ -366,27 +540,31 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-muted/50 rounded-lg p-3 text-center">
                 <p className="text-2xl font-bold">{totalRows}</p>
-                <p className="text-xs text-muted-foreground">Linhas no arquivo</p>
+                <p className="text-xs text-muted-foreground">Linhas lidas</p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-green-600">{validRows}</p>
-                <p className="text-xs text-muted-foreground">Linhas válidas</p>
+                <p className="text-2xl font-bold text-primary">{totalSheets}</p>
+                <p className="text-xs text-muted-foreground">Abas processadas</p>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-green-600">{groupedOrders.length}</p>
+                <p className="text-xs text-muted-foreground">Pedidos a criar</p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3 text-center">
                 <p className="text-2xl font-bold text-red-600">{errors.length}</p>
-                <p className="text-xs text-muted-foreground">Linhas com erro</p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-primary">{groupedOrders.length}</p>
-                <p className="text-xs text-muted-foreground">Pedidos a criar</p>
+                <p className="text-xs text-muted-foreground">Erros</p>
               </div>
             </div>
 
+            {totalSkipped > 0 && (
+              <p className="text-xs text-muted-foreground">🔇 {totalSkipped} linhas ignoradas silenciosamente (produtos não aplicáveis ou linhas de observação).</p>
+            )}
+
             {groupedOrders.length > 0 && (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-hidden max-h-60 overflow-y-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-muted/50 text-left text-muted-foreground">
+                    <tr className="bg-muted/50 text-left text-muted-foreground sticky top-0">
                       <th className="p-2">Aluno</th>
                       <th className="p-2">Itens</th>
                       <th className="p-2 text-right">Venda</th>
@@ -397,8 +575,8 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
                   <tbody>
                     {groupedOrders.map((g, i) => (
                       <tr key={i} className="border-t">
-                        <td className="p-2">{normalizeName(g.studentName)}</td>
-                        <td className="p-2">{g.items.map(it => `${it.productName} x${it.quantity}`).join(', ')}</td>
+                        <td className="p-2">{g.studentName}</td>
+                        <td className="p-2">{g.items.map(it => `${it.productName} (${it.size}) x${it.quantity}`).join(', ')}</td>
                         <td className="p-2 text-right">R$ {g.totalSale.toFixed(2)}</td>
                         <td className="p-2 text-right">R$ {g.totalSupplier.toFixed(2)}</td>
                         <td className="p-2 text-right text-green-600">R$ {g.totalProfit.toFixed(2)}</td>
@@ -409,13 +587,24 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
               </div>
             )}
 
+            {warnings.length > 0 && (
+              <div className="border border-yellow-200 rounded-lg p-3 bg-yellow-50/50 max-h-32 overflow-y-auto">
+                <p className="text-xs font-semibold text-yellow-700 mb-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Avisos ({warnings.length}):
+                </p>
+                {warnings.map((w, i) => (
+                  <p key={i} className="text-xs text-yellow-700">{w.student}: {w.message}</p>
+                ))}
+              </div>
+            )}
+
             {errors.length > 0 && (
-              <div className="border border-red-200 rounded-lg p-3 bg-red-50/50 max-h-40 overflow-y-auto">
+              <div className="border border-red-200 rounded-lg p-3 bg-red-50/50 max-h-32 overflow-y-auto">
                 <p className="text-xs font-semibold text-red-700 mb-1 flex items-center gap-1">
                   <XCircle className="w-3 h-3" /> Erros encontrados:
                 </p>
                 {errors.map((err, i) => (
-                  <p key={i} className="text-xs text-red-600">Linha {err.row}: {err.reason}</p>
+                  <p key={i} className="text-xs text-red-600">[{err.student}] Linha {err.row}: {err.reason}</p>
                 ))}
               </div>
             )}
@@ -429,7 +618,7 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
 
             <div className="border border-orange-200 rounded-lg p-3 bg-orange-50/50 text-xs text-orange-700">
               <AlertTriangle className="w-3 h-3 inline mr-1" />
-              Certifique-se de que este arquivo não foi importado antes. Esta ação não pode ser desfeita.
+              Verifique se esta planilha já não foi importada antes. Esta ação não pode ser desfeita.
             </div>
 
             <div className="flex gap-2 justify-end">
@@ -455,15 +644,15 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
               <p className="font-semibold text-lg">Importação Concluída</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 space-y-1 text-sm">
-              <p><strong>{resultSummary.success}</strong> itens processados com sucesso.</p>
+              <p><strong>{resultSummary.success}</strong> pedidos criados com sucesso.</p>
               {resultSummary.failed > 0 && (
-                <p className="text-red-600"><strong>{resultSummary.failed}</strong> itens falharam — veja a lista de erros abaixo.</p>
+                <p className="text-red-600"><strong>{resultSummary.failed}</strong> alunos com erro — veja a lista abaixo.</p>
               )}
             </div>
             {resultSummary.errors.length > 0 && (
               <div className="border border-red-200 rounded-lg p-3 bg-red-50/50 max-h-40 overflow-y-auto">
-                {resultSummary.errors.map((e, i) => (
-                  <p key={i} className="text-xs text-red-600">{e}</p>
+                {resultSummary.errors.map((err, i) => (
+                  <p key={i} className="text-xs text-red-600">{err}</p>
                 ))}
               </div>
             )}
