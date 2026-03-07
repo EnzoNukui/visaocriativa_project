@@ -111,6 +111,20 @@ export function useOrders() {
   const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'repasseCompleted' | 'repasseDate' | 'repasseConfirmedBy' | 'repasseAmount' | 'schoolProfit'>) => {
     try {
       const schoolProfit = order.totalAmount - order.supplierTotalAmount;
+
+      const { data: lastOrder } = await supabase
+        .from('orders')
+        .select('order_number')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const lastNumber = lastOrder?.order_number
+        ? parseInt(lastOrder.order_number.replace('VC-', ''))
+        : 0;
+      const nextNumber = String(lastNumber + 1).padStart(4, '0');
+      const orderNumber = `VC-${nextNumber}`;
+
       const { data, error } = await supabase
         .from('orders')
         .insert({
@@ -124,19 +138,20 @@ export function useOrders() {
           repasse_amount: order.supplierTotalAmount,
           status: order.status,
           created_by: order.createdBy,
-          order_number: 'TEMP',
+          order_number: orderNumber,
         })
-        .select()
-        .single();
+        .select();
 
       if (error) {
         console.error('Error creating order:', error);
         return null;
       }
-      if (!data) return null;
+      if (!data || data.length === 0) return null;
+
+      const newOrder = data[0];
 
       const itemsToInsert = order.items.map(i => ({
-        order_id: data.id,
+        order_id: newOrder.id,
         product_id: i.productId,
         product_name: i.productName,
         size: i.size,
@@ -153,7 +168,7 @@ export function useOrders() {
       }
 
       await fetchOrders();
-      return data;
+      return newOrder;
     } catch (err) {
       console.error('Unexpected error creating order:', err);
       return null;
