@@ -197,7 +197,7 @@ function crc32(data: Uint8Array): number {
 
 const statusLabel = (s: string) => {
   const map: Record<string, string> = {
-    pending: "Pendente", production: "Em Produção", delivered: "Entregue",
+    pending: "Pendente", in_production: "Em Produção", delivered: "Entregue",
     paid: "Pago", awaiting_payment: "Aguardando Pagamento", ready: "Pronto", cancelled: "Cancelado",
   };
   return map[s] || s;
