@@ -243,13 +243,26 @@ const Orders = () => {
 
   const handleRepasseToggle = async (id: string, currentValue: boolean) => {
     if (!user) return;
-    await supabase.from('orders').update({
-      repasse_completed: !currentValue,
-      repasse_date: !currentValue ? new Date().toISOString() : null,
-      repasse_confirmed_by: !currentValue ? user.id : null,
-    }).eq('id', id);
+
+    const payload = currentValue
+      ? {
+          repasse_completed: false,
+          repasse_date: null,
+          repasse_confirmed_by: null,
+          status: 'paid',
+        }
+      : {
+          repasse_completed: true,
+          repasse_date: new Date().toISOString(),
+          repasse_confirmed_by: user.id,
+          status: 'paid',
+        };
+
+    await supabase.from('orders').update(payload).eq('id', id);
     invalidateCache();
-    toast({ title: !currentValue ? 'Repasse confirmado' : 'Repasse desfeito' });
+    toast({
+      title: currentValue ? 'Repasse desmarcado.' : 'Repasse confirmado e pedido marcado como Pago.',
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -336,23 +349,15 @@ const Orders = () => {
           <tr className="border-b text-left text-muted-foreground bg-muted/50">
             <th className="p-3">Nº</th>
             <th className="p-3">Aluno</th>
-            <th className="p-3 hidden md:table-cell">Turma</th>
+            <th className="p-3">Turma</th>
             <th className="p-3">Total</th>
             <th className="p-3">Status</th>
-            <th className="p-3 hidden md:table-cell">Prazo</th>
-            <th className="p-3 hidden md:table-cell">Data</th>
+            <th className="p-3">Prazo</th>
+            <th className="p-3">Data</th>
             <th className="p-3">Repasse</th>
             <th className="p-3">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map(order => {
-            const deadline = getDeadlineStatus(order.createdAt);
-            return (
-              <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
-                <td className="p-3 font-medium">{order.orderNumber}</td>
-                <td className="p-3">{order.studentName}</td>
-                <td className="p-3 hidden md:table-cell">{order.grade}</td>
+...
+                <td className="p-3">{order.grade}</td>
                 <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td className="p-3">
                   {isAdmin ? (
@@ -373,14 +378,14 @@ const Orders = () => {
                     </span>
                   )}
                 </td>
-                <td className="p-3 hidden md:table-cell">
+                <td className="p-3">
                   {order.status !== 'delivered' ? (
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${deadline.color}`}>{deadline.label}</span>
                   ) : (
                     <span className="text-xs text-muted-foreground">Entregue</span>
                   )}
                 </td>
-                <td className="p-3 hidden md:table-cell text-muted-foreground">
+                <td className="p-3 text-muted-foreground">
                   {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                 </td>
                 <td className="p-3">
