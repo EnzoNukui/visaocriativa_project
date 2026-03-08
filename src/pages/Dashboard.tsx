@@ -126,6 +126,20 @@ const Dashboard = () => {
         </Alert>
       )}
 
+      {/* Supplier warning banner for pending repasse complementar */}
+      {isSupplier && pendingComplementar.count > 0 && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800 text-sm">
+            {pendingComplementar.totalValue >= 0 ? (
+              <>Há <strong className="text-green-700">R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> em repasses complementares pendentes. Você receberá R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a mais.</>
+            ) : (
+              <>Há <strong className="text-red-700">R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> em repasses complementares pendentes. Você deverá devolver R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.</>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
         <Card className="min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
