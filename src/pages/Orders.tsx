@@ -469,7 +469,6 @@ const Orders = () => {
               isAdmin={isAdmin}
             />
           ))}
-          ))}
           {manualCount > 0 && (
             <BatchCard
               batchKey="__manual__"
