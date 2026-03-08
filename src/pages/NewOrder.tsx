@@ -132,8 +132,10 @@ const NewOrder = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h2 className="text-xl font-bold">Novo Pedido</h2>
-        <p className="text-sm text-muted-foreground">Preencha os dados do aluno e selecione os itens</p>
+        <h2 className="text-xl font-bold">{batchId ? `Adicionar Pedido ao ${batchNumber || 'Lote'}` : 'Novo Pedido'}</h2>
+        <p className="text-sm text-muted-foreground">
+          {batchId ? `Adicionando pedido ao lote ${batchNumber || ''}` : 'Preencha os dados do aluno e selecione os itens'}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
