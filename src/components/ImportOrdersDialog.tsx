@@ -393,30 +393,20 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       });
     });
 
-    // Duplicate detection - Layer 1: exact file name within 10 minutes
-    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { data: exactMatch } = await supabase
+    // Duplicate detection
+    const today = new Date().toISOString().split('T')[0];
+    const { data: existingLogs } = await supabase
       .from('import_logs')
       .select('*')
       .eq('file_name', fName)
-      .gte('imported_at', tenMinAgo);
+      .eq('total_rows', rowCount)
+      .gte('imported_at', today + 'T00:00:00')
+      .lte('imported_at', today + 'T23:59:59');
 
-    if (exactMatch && exactMatch.length > 0) {
-      setDuplicateWarning('Esta planilha parece já ter sido importada anteriormente. Deseja continuar?');
+    if (existingLogs && existingLogs.length > 0) {
+      setDuplicateWarning(`⚠️ Este arquivo pode já ter sido importado hoje (${new Date().toLocaleDateString('pt-BR')}). Verifique antes de prosseguir.`);
     } else {
-      // Layer 2: same row count, different file name within 10 minutes
-      const { data: rowMatch } = await supabase
-        .from('import_logs')
-        .select('*')
-        .eq('total_rows', rowCount)
-        .neq('file_name', fName)
-        .gte('imported_at', tenMinAgo);
-
-      if (rowMatch && rowMatch.length > 0) {
-        setDuplicateWarning('Um arquivo com o mesmo número de linhas foi importado recentemente. Verifique se não é uma duplicata antes de continuar.');
-      } else {
-        setDuplicateWarning('');
-      }
+      setDuplicateWarning('');
     }
 
     setErrors(allErrors);

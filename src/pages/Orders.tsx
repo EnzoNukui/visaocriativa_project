@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePermissions } from '@/hooks/usePermissions';
 import { useOrders, Order } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,18 +49,15 @@ function getDeadlineStatus(createdAt: string) {
 
 const Orders = () => {
   const { user } = useAuth();
-  const perms = usePermissions();
   const { orders, loading, updateStatus, updateRepasseCompleted, deleteOrder, refresh } = useOrders();
   const { toast } = useToast();
+  const isAdmin = user?.activeRole === 'admin';
+  const isSupplier = user?.activeRole === 'supplier';
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-
-  if (!perms) {
-    return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64" /></div>;
-  }
 
   const filtered = orders.filter(o => {
     const matchSearch = o.studentName.toLowerCase().includes(search.toLowerCase()) ||
@@ -99,7 +95,7 @@ const Orders = () => {
 
   return (
     <div className="space-y-4">
-      {!perms.viewFinancial && (
+      {isSupplier && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
@@ -139,16 +135,12 @@ const Orders = () => {
           <h2 className="text-xl font-bold">Pedidos</h2>
           <p className="text-sm text-muted-foreground">{filtered.length} pedido(s) encontrado(s)</p>
         </div>
-        {(perms.createOrder || perms.importOrders) && (
+        {isAdmin && (
           <div className="flex gap-2">
-            {perms.importOrders && (
-              <Button variant="outline" onClick={() => setImportOpen(true)}>
-                <Upload className="w-4 h-4 mr-2" />Importar Planilha
-              </Button>
-            )}
-            {perms.createOrder && (
-              <Button asChild><Link to="/orders/new"><PlusCircle className="w-4 h-4 mr-2" />Novo Pedido</Link></Button>
-            )}
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />Importar Planilha
+            </Button>
+            <Button asChild><Link to="/orders/new"><PlusCircle className="w-4 h-4 mr-2" />Novo Pedido</Link></Button>
           </div>
         )}
       </div>
@@ -163,11 +155,11 @@ const Orders = () => {
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="pending">Pendente</SelectItem>
-            <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
-            <SelectItem value="paid">Pago</SelectItem>
             <SelectItem value="in_production">Em Produção</SelectItem>
-            <SelectItem value="ready">Pronto</SelectItem>
             <SelectItem value="delivered">Entregue</SelectItem>
+            <SelectItem value="paid">Pago</SelectItem>
+            <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
+            <SelectItem value="ready">Pronto</SelectItem>
             <SelectItem value="cancelled">Cancelado</SelectItem>
           </SelectContent>
         </Select>
@@ -202,7 +194,7 @@ const Orders = () => {
                         <td className="p-3 hidden md:table-cell">{order.grade}</td>
                         <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                         <td className="p-3">
-                          {perms.editRepasse ? (
+                          {isAdmin ? (
                             <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v)}>
                               <SelectTrigger className="h-7 w-36 text-xs"><SelectValue /></SelectTrigger>
                               <SelectContent>
@@ -233,7 +225,7 @@ const Orders = () => {
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-1">
-                            {perms.editRepasse ? (
+                            {isAdmin ? (
                               <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
                                 <Checkbox
                                   checked={order.repasseCompleted}
@@ -249,7 +241,7 @@ const Orders = () => {
                             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
                               <Eye className="w-4 h-4" />
                             </Button>
-                            {perms.deleteOrder && (
+                            {isAdmin && (
                               <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(order.id)}>
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -310,7 +302,7 @@ const Orders = () => {
         </DialogContent>
       </Dialog>
 
-      {perms.importOrders && (
+      {isAdmin && (
         <ImportOrdersDialog open={importOpen} onOpenChange={setImportOpen} onComplete={refresh} />
       )}
     </div>
