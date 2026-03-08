@@ -15,6 +15,7 @@ import Batches from "./pages/Batches";
 import SupplierProduction from "./pages/SupplierProduction";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Adjustments from "./pages/Adjustments";
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
 
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/products" element={<ProtectedRoute adminOnly><Products /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
             <Route path="/backups" element={<ProtectedRoute adminOnly><Backups /></ProtectedRoute>} />
+            <Route path="/adjustments" element={<ProtectedRoute adminOnly><Adjustments /></ProtectedRoute>} />
             <Route path="/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
             <Route path="/supplier-production" element={<ProtectedRoute supplierOnly><SupplierProduction /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

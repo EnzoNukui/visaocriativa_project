@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload, ChevronRight, ChevronDown, CheckCircle, RefreshCw } from 'lucide-react';
+import ExchangeRequestModal from '@/components/ExchangeRequestModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,6 +19,7 @@ import type { Order } from '@/hooks/useOrders';
 const statusLabels: Record<string, string> = {
   pending: 'Pendente',
   in_production: 'Em Produção',
+  exchange_requested: 'Troca Solicitada',
   delivered: 'Entregue',
   paid: 'Pago',
   awaiting_payment: 'Aguardando Pagamento',
@@ -28,6 +30,7 @@ const statusLabels: Record<string, string> = {
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   in_production: 'bg-blue-100 text-blue-800',
+  exchange_requested: 'bg-orange-100 text-orange-700',
   delivered: 'bg-green-100 text-green-800',
   paid: 'bg-emerald-100 text-emerald-800',
   awaiting_payment: 'bg-orange-100 text-orange-800',
@@ -111,6 +114,7 @@ const Orders = () => {
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState<{ id: string; number: string } | null>(null);
   const [batchStatusChange, setBatchStatusChange] = useState<{ id: string; number: string } | null>(null);
   const [batchStatusConfirm, setBatchStatusConfirm] = useState<{ id: string; number: string; status: string; count: number } | null>(null);
+  const [exchangeModal, setExchangeModal] = useState<{ orderId: string; orderNumber: string; items: any[] } | null>(null);
 
   const [batches, setBatches] = useState<BatchMeta[]>([]);
   const [manualCount, setManualCount] = useState(0);
@@ -240,6 +244,14 @@ const Orders = () => {
   };
 
   const handleStatusChange = async (id: string, status: string) => {
+    if (status === 'exchange_requested') {
+      // Find the order and its items to open the exchange modal
+      const order = Object.values(batchOrders).flat().find(o => o?.id === id) || allOrdersForSearch?.find(o => o.id === id);
+      if (order && order.items.length > 0) {
+        setExchangeModal({ orderId: id, orderNumber: order.orderNumber, items: order.items });
+        return;
+      }
+    }
     await supabase.from('orders').update({ status }).eq('id', id);
     invalidateCache();
     toast({ title: 'Status atualizado', description: `Pedido marcado como "${statusLabels[status] || status}"` });
@@ -434,6 +446,7 @@ const Orders = () => {
                         <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
                         <SelectItem value="paid">Pago</SelectItem>
                         <SelectItem value="in_production">Em Produção</SelectItem>
+                        <SelectItem value="exchange_requested">Troca Solicitada</SelectItem>
                         <SelectItem value="ready">Pronto</SelectItem>
                         <SelectItem value="delivered">Entregue</SelectItem>
                         <SelectItem value="cancelled">Cancelado</SelectItem>
@@ -561,6 +574,7 @@ const Orders = () => {
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="pending">Pendente</SelectItem>
             <SelectItem value="in_production">Em Produção</SelectItem>
+            <SelectItem value="exchange_requested">Troca Solicitada</SelectItem>
             <SelectItem value="delivered">Entregue</SelectItem>
             <SelectItem value="paid">Pago</SelectItem>
             <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
@@ -714,7 +728,7 @@ const Orders = () => {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Alterar status de todos os pedidos do lote <strong>{batchStatusChange?.number}</strong> para:</p>
           <div className="flex flex-col gap-2">
-            {['awaiting_payment', 'in_production', 'ready', 'delivered', 'paid', 'cancelled'].map(s => (
+            {['awaiting_payment', 'in_production', 'exchange_requested', 'ready', 'delivered', 'paid', 'cancelled'].map(s => (
               <Button key={s} variant="outline" className="justify-start" onClick={() => {
                 if (batchStatusChange) {
                   const count = (batchOrders[batchStatusChange.id] || []).length;
@@ -766,6 +780,18 @@ const Orders = () => {
 
       {isAdmin && (
         <ImportOrdersDialog open={importOpen} onOpenChange={setImportOpen} onComplete={invalidateCache} />
+      )}
+
+      {exchangeModal && (
+        <ExchangeRequestModal
+          open={!!exchangeModal}
+          onOpenChange={(open) => { if (!open) setExchangeModal(null); }}
+          orderId={exchangeModal.orderId}
+          orderNumber={exchangeModal.orderNumber}
+          items={exchangeModal.items}
+          userId={user?.id || ''}
+          onComplete={invalidateCache}
+        />
       )}
     </div>
   );
