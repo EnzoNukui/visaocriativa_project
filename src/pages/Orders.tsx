@@ -466,7 +466,9 @@ const Orders = () => {
               orders={batchOrders[batch.id!]}
               loading={!!loadingOrders[batch.id!]}
               renderOrderTable={renderOrderTable}
+              isAdmin={isAdmin}
             />
+          ))}
           ))}
           {manualCount > 0 && (
             <BatchCard
