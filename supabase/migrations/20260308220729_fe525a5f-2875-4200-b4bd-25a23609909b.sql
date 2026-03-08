@@ -1,0 +1,1 @@
+CREATE POLICY "Admins update order items" ON public.order_items FOR UPDATE USING (has_role(auth.uid(), 'admin'::app_role));
