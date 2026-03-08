@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders, OrderItem } from '@/hooks/useOrders';
 import { useProducts } from '@/hooks/useProducts';
@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, ShoppingCart } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/integrations/supabase/client';
 
 const NewOrder = () => {
   const { user } = useAuth();
@@ -19,10 +18,6 @@ const NewOrder = () => {
   const { products, loading: productsLoading } = useProducts();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
-
-  const batchId = searchParams.get('batchId');
-  const batchNumber = searchParams.get('batchNumber');
 
   const [studentName, setStudentName] = useState('');
   const [grade, setGrade] = useState('');
@@ -83,39 +78,11 @@ const NewOrder = () => {
         supplierTotalAmount,
         status: 'awaiting_payment',
         createdBy: user?.id ?? null,
-        importBatchId: batchId || undefined,
       });
       if (!result) {
         throw new Error('Order creation returned no result');
       }
-
-      // Update batch totals if adding to a batch
-      if (batchId) {
-        const { data: currentBatch } = await supabase
-          .from('import_batches')
-          .select('total_orders, total_items, total_sale_amount, total_supplier_amount, total_profit')
-          .eq('id', batchId)
-          .single();
-
-        if (currentBatch) {
-          const newItemCount = items.reduce((s, i) => s + i.quantity, 0);
-          const profit = totalAmount - supplierTotalAmount;
-          await supabase
-            .from('import_batches')
-            .update({
-              total_orders: currentBatch.total_orders + 1,
-              total_items: currentBatch.total_items + newItemCount,
-              total_sale_amount: Number(currentBatch.total_sale_amount) + totalAmount,
-              total_supplier_amount: Number(currentBatch.total_supplier_amount) + supplierTotalAmount,
-              total_profit: Number(currentBatch.total_profit) + profit,
-            })
-            .eq('id', batchId);
-        }
-
-        toast({ title: 'Pedido adicionado ao lote', description: `Pedido adicionado ao lote ${batchNumber || batchId} com sucesso.` });
-      } else {
-        toast({ title: 'Pedido criado com sucesso!', description: `Pedido registrado para ${studentName.trim()}.` });
-      }
+      toast({ title: 'Pedido criado com sucesso!', description: `Pedido registrado para ${studentName.trim()}.` });
       navigate('/orders');
     } catch (error) {
       console.error('Error creating order:', error);
@@ -132,10 +99,8 @@ const NewOrder = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h2 className="text-xl font-bold">{batchId ? `Adicionar Pedido ao ${batchNumber || 'Lote'}` : 'Novo Pedido'}</h2>
-        <p className="text-sm text-muted-foreground">
-          {batchId ? `Adicionando pedido ao lote ${batchNumber || ''}` : 'Preencha os dados do aluno e selecione os itens'}
-        </p>
+        <h2 className="text-xl font-bold">Novo Pedido</h2>
+        <p className="text-sm text-muted-foreground">Preencha os dados do aluno e selecione os itens</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

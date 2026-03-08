@@ -108,7 +108,7 @@ export function useOrders() {
     if (session) fetchOrders();
   }, [session, fetchOrders]);
 
-  const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'repasseCompleted' | 'repasseDate' | 'repasseConfirmedBy' | 'repasseAmount' | 'schoolProfit'> & { importBatchId?: string }) => {
+  const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'repasseCompleted' | 'repasseDate' | 'repasseConfirmedBy' | 'repasseAmount' | 'schoolProfit'>) => {
     try {
       const schoolProfit = order.totalAmount - order.supplierTotalAmount;
 
@@ -125,27 +125,21 @@ export function useOrders() {
       const nextNumber = String(lastNumber + 1).padStart(4, '0');
       const orderNumber = `VC-${nextNumber}`;
 
-      const insertData: any = {
-        student_name: order.studentName,
-        grade: order.grade,
-        responsible_name: order.responsibleName,
-        phone: order.phone,
-        total_amount: order.totalAmount,
-        supplier_total_amount: order.supplierTotalAmount,
-        school_profit: schoolProfit,
-        repasse_amount: order.supplierTotalAmount,
-        status: order.status,
-        created_by: order.createdBy,
-        order_number: orderNumber,
-      };
-
-      if (order.importBatchId) {
-        insertData.import_batch_id = order.importBatchId;
-      }
-
       const { data, error } = await supabase
         .from('orders')
-        .insert(insertData)
+        .insert({
+          student_name: order.studentName,
+          grade: order.grade,
+          responsible_name: order.responsibleName,
+          phone: order.phone,
+          total_amount: order.totalAmount,
+          supplier_total_amount: order.supplierTotalAmount,
+          school_profit: schoolProfit,
+          repasse_amount: order.supplierTotalAmount,
+          status: order.status,
+          created_by: order.createdBy,
+          order_number: orderNumber,
+        })
         .select();
 
       if (error) {
