@@ -356,7 +356,15 @@ const Orders = () => {
             <th className="p-3">Data</th>
             <th className="p-3">Repasse</th>
             <th className="p-3">Ações</th>
-...
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map(order => {
+            const deadline = getDeadlineStatus(order.createdAt);
+            return (
+              <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
+                <td className="p-3 font-medium">{order.orderNumber}</td>
+                <td className="p-3">{order.studentName}</td>
                 <td className="p-3">{order.grade}</td>
                 <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td className="p-3">
