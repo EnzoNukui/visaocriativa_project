@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { useOrders, OrderItem } from '@/hooks/useOrders';
 import { useProducts } from '@/hooks/useProducts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +18,8 @@ const NewOrder = () => {
   const { addOrder } = useOrders();
   const { products, loading: productsLoading } = useProducts();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const batchId = searchParams.get('batchId');
   const { toast } = useToast();
 
   const [studentName, setStudentName] = useState('');
@@ -78,11 +81,30 @@ const NewOrder = () => {
         supplierTotalAmount,
         status: 'awaiting_payment',
         createdBy: user?.id ?? null,
+        importBatchId: batchId || undefined,
       });
       if (!result) {
         throw new Error('Order creation returned no result');
       }
-      toast({ title: 'Pedido criado com sucesso!', description: `Pedido registrado para ${studentName.trim()}.` });
+
+      // Update batch totals if adding to a batch
+      if (batchId) {
+        const { data: remaining } = await supabase
+          .from('orders')
+          .select('total_amount, supplier_total_amount')
+          .eq('import_batch_id', batchId)
+          .neq('status', 'cancelled');
+        const newTotal = remaining?.reduce((s, o) => s + Number(o.total_amount), 0) ?? 0;
+        const newSupplier = remaining?.reduce((s, o) => s + Number(o.supplier_total_amount), 0) ?? 0;
+        await supabase.from('import_batches').update({
+          total_orders: remaining?.length ?? 0,
+          total_sale_amount: newTotal,
+          total_supplier_amount: newSupplier,
+          total_profit: newTotal - newSupplier,
+        }).eq('id', batchId);
+      }
+
+      toast({ title: 'Pedido criado com sucesso!', description: batchId ? `Pedido adicionado ao lote com sucesso.` : `Pedido registrado para ${studentName.trim()}.` });
       navigate('/orders');
     } catch (error) {
       console.error('Error creating order:', error);

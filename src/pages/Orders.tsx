@@ -758,6 +758,16 @@ function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAm
       </div>
       {isExpanded && (
         <CardContent className="p-0 border-t">
+          {isAdmin && !isManual && (
+            <div className="flex justify-end p-3 pb-0">
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" asChild>
+                <Link to={`/orders/new?batchId=${batchKey}`}>
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  Adicionar Pedido ao Lote
+                </Link>
+              </Button>
+            </div>
+          )}
           {loading ? (
             <div className="p-6 space-y-2">
               <Skeleton className="h-4 w-full" />
