@@ -443,7 +443,6 @@ const Orders = () => {
           allOrders={allOrdersForSearch}
           loading={searchLoading}
           batches={batches}
-          manualCount={manualCount}
           filterOrders={filterOrders}
           renderOrderTable={renderOrderTable}
         />
