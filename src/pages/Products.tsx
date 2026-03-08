@@ -61,7 +61,7 @@ const Products = () => {
 
   const handleDeleteProduct = async (id: string) => {
     await deleteProduct(id);
-    toast({ title: 'Produto removido!' });
+    toast({ title: 'Modelo removido!' });
   };
 
   const handleAddProduct = async () => {
@@ -73,7 +73,7 @@ const Products = () => {
     setNewName('');
     setNewVariants([{ size: '', price: 0, supplierPrice: 0 }]);
     setShowAddDialog(false);
-    toast({ title: 'Produto adicionado!' });
+    toast({ title: 'Modelo adicionado!' });
   };
 
   const updateNewVariant = (index: number, field: keyof ProductVariant, value: string | number) => {
@@ -97,7 +97,7 @@ const Products = () => {
     }
     await updateProduct(editingProduct.id, editName.trim(), editVariants);
     setEditingProduct(null);
-    toast({ title: 'Produto atualizado!' });
+    toast({ title: 'Modelo atualizado!' });
   };
 
   if (loading) {
@@ -108,11 +108,11 @@ const Products = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">Catálogo de Produtos</h2>
-          <p className="text-sm text-muted-foreground">Gerencie produtos, preços e margens</p>
+        <h2 className="text-xl font-bold">Catálogo de Modelos</h2>
+          <p className="text-sm text-muted-foreground">Gerencie modelos, preços e margens</p>
         </div>
         <Button variant="outline" onClick={() => setShowAddDialog(true)}>
-          <PlusCircle className="w-4 h-4 mr-2" />Novo Produto
+          <PlusCircle className="w-4 h-4 mr-2" />Novo Modelo
         </Button>
       </div>
 
@@ -145,20 +145,20 @@ const Products = () => {
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Novo Produto</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Novo Modelo</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Nome do Produto</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: Bermuda Masculina" /></div>
+            <div className="space-y-2"><Label>Nome do Modelo</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: Bermuda Masculina" /></div>
             <VariantForm variants={newVariants} onUpdate={updateNewVariant} onAdd={() => setNewVariants(prev => [...prev, { size: '', price: 0, supplierPrice: 0 }])} onRemove={(i) => { if (newVariants.length > 1) setNewVariants(prev => prev.filter((_, idx) => idx !== i)); }} />
-            <Button onClick={handleAddProduct} className="w-full">Adicionar Produto</Button>
+            <Button onClick={handleAddProduct} className="w-full">Adicionar Modelo</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingProduct} onOpenChange={() => setEditingProduct(null)}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Editar Produto</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Editar Modelo</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Nome do Produto</Label><Input value={editName} onChange={e => setEditName(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Nome do Modelo</Label><Input value={editName} onChange={e => setEditName(e.target.value)} /></div>
             <VariantForm variants={editVariants} onUpdate={updateEditVariant} onAdd={() => setEditVariants(prev => [...prev, { size: '', price: 0, supplierPrice: 0 }])} onRemove={(i) => { if (editVariants.length > 1) setEditVariants(prev => prev.filter((_, idx) => idx !== i)); }} showDifference />
             <Button onClick={handleSaveEdit} className="w-full">Salvar Alterações</Button>
           </div>
