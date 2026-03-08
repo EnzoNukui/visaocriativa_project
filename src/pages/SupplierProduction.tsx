@@ -95,14 +95,17 @@ function BatchTab() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase
-        .from('import_logs')
-        .select('id, imported_at, total_rows')
+        .from('import_batches')
+        .select('id, imported_at, total_orders, batch_number')
+        .eq('status', 'active')
         .order('imported_at', { ascending: false });
 
       if (data) {
-        setBatches(data.map((b, idx) => ({
-          ...b,
-          batch_number: `LOTE-${String(data.length - idx).padStart(4, '0')}`,
+        setBatches(data.map(b => ({
+          id: b.id,
+          imported_at: b.imported_at,
+          total_rows: b.total_orders,
+          batch_number: b.batch_number,
         })));
       }
       setLoading(false);
