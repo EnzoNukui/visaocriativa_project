@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import NewOrder from "./pages/NewOrder";
 import Products from "./pages/Products";
+import Schools from "./pages/Schools";
 import Users from "./pages/Users";
 import Backups from "./pages/Backups";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
             <Route path="/orders/new" element={<ProtectedRoute adminOnly><NewOrder /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute adminOnly><Products /></ProtectedRoute>} />
+            <Route path="/schools" element={<ProtectedRoute adminOnly><Schools /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
             <Route path="/backups" element={<ProtectedRoute adminOnly><Backups /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
