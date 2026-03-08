@@ -263,7 +263,7 @@ const Orders = () => {
     fetchBatches();
   };
 
-  const filterOrders = (orders: Order[]) => {
+  const filterOrders = <T extends Order>(orders: T[]): T[] => {
     return orders.filter(o => {
       const matchSearch = search.length === 0 || o.studentName.toLowerCase().includes(search.toLowerCase()) || o.orderNumber.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'all' || o.status === statusFilter;
