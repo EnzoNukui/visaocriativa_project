@@ -115,11 +115,11 @@ const Dashboard = () => {
           <AlertDescription className="flex items-center justify-between gap-2 flex-wrap">
             <span className="text-amber-800 text-sm">
               Há{' '}
-              <strong className={pendingComplementar.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}>
+              <strong className={pendingComplementar.totalValue <= 0 ? 'text-green-600' : 'text-red-600'}>
                 R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </strong>{' '}
               em repasses complementares pendentes
-              <span className={pendingComplementar.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}>
+              <span className={pendingComplementar.totalValue <= 0 ? 'text-green-600' : 'text-red-600'}>
                 {' '}({pendingComplementar.totalValue >= 0 ? 'a pagar ao fornecedor' : 'a receber do fornecedor'})
               </span>.
             </span>
