@@ -837,6 +837,29 @@ export default function Batches() {
                     )}
                   </div>
 
+                  {/* Repasse Complementar Section */}
+                  {isAdmin && batchComplementar[batch.id] && batchComplementar[batch.id].count > 0 && (
+                    <div className="mt-3 pt-3 border-t rounded-lg border border-orange-200 bg-orange-50 p-3 space-y-2">
+                      <p className="text-sm font-semibold text-orange-700">Repasse Complementar Pendente</p>
+                      <p className={`text-lg font-bold ${batchComplementar[batch.id].totalValue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {batchComplementar[batch.id].totalValue >= 0 ? '+' : '-'}R$ {Math.abs(batchComplementar[batch.id].totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        <span className="text-xs font-normal text-muted-foreground ml-2">
+                          ({batchComplementar[batch.id].totalValue >= 0 ? 'a pagar ao fornecedor' : 'a receber do fornecedor'})
+                        </span>
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                        onClick={() => handleConfirmComplementar(batch.id)}
+                        disabled={confirmingComplementar === batch.id}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        {confirmingComplementar === batch.id ? 'Confirmando...' : 'Confirmar Repasse Complementar'}
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Expanded detail */}
                   {isOpen && (
                     <BatchDetail batchId={batch.id} batchNumber={batch.batch_number} onRefresh={fetchBatches} isAdmin={isAdmin} />
