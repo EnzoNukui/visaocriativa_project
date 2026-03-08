@@ -805,7 +805,7 @@ function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAm
             <span className="text-xs text-muted-foreground">Pedidos criados manualmente</span>
           )}
           <span className="text-xs text-muted-foreground ml-auto">{totalOrders} pedido(s)</span>
-          <span className="text-xs font-medium">R$ {totalSaleAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          {isAdmin && <span className="text-xs font-medium">R$ {totalSaleAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>}
         </button>
         {isAdmin && !isManual && (
           <div className="flex items-center gap-1 shrink-0">
