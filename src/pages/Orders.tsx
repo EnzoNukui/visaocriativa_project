@@ -444,11 +444,11 @@ const Orders = () => {
                       <SelectTrigger className="h-7 w-36 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
-                        <SelectItem value="paid">Pago</SelectItem>
                         <SelectItem value="in_production">Em Produção</SelectItem>
                         <SelectItem value="exchange_requested">Troca Solicitada</SelectItem>
                         <SelectItem value="ready">Pronto</SelectItem>
                         <SelectItem value="delivered">Entregue</SelectItem>
+                        <SelectItem value="paid">Pago</SelectItem>
                         <SelectItem value="cancelled">Cancelado</SelectItem>
                       </SelectContent>
                     </Select>
@@ -572,13 +572,12 @@ const Orders = () => {
           <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="pending">Pendente</SelectItem>
+            <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
             <SelectItem value="in_production">Em Produção</SelectItem>
             <SelectItem value="exchange_requested">Troca Solicitada</SelectItem>
+            <SelectItem value="ready">Pronto</SelectItem>
             <SelectItem value="delivered">Entregue</SelectItem>
             <SelectItem value="paid">Pago</SelectItem>
-            <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
-            <SelectItem value="ready">Pronto</SelectItem>
             <SelectItem value="cancelled">Cancelado</SelectItem>
           </SelectContent>
         </Select>
