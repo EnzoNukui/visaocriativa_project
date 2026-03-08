@@ -695,7 +695,13 @@ export default function Batches() {
         .eq('batch_id', batchId)
         .eq('status', 'pending');
 
-      toast({ title: 'Repasse complementar confirmado. Lucro atualizado.' });
+      await supabase
+        .from('orders')
+        .update({ status: 'paid' })
+        .eq('import_batch_id', batchId)
+        .eq('status', 'exchange_requested');
+
+      toast({ title: 'Repasse complementar confirmado. Pedidos marcados como Pago.' });
       setBatchComplementar(prev => { const n = { ...prev }; delete n[batchId]; return n; });
     } catch {
       toast({ title: 'Erro', description: 'Erro ao confirmar repasse complementar.', variant: 'destructive' });

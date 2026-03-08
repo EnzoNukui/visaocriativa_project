@@ -53,6 +53,7 @@ export default function ExchangeRequestModal({
   const [selectedItemId, setSelectedItemId] = useState('');
   const [newSize, setNewSize] = useState('');
   const [newUnitPrice, setNewUnitPrice] = useState<number | ''>('');
+  const [exchangeQuantity, setExchangeQuantity] = useState<number>(1);
   const [priceLocked, setPriceLocked] = useState(false);
   const [priceWarning, setPriceWarning] = useState('');
   const [notes, setNotes] = useState('');
@@ -96,6 +97,7 @@ export default function ExchangeRequestModal({
     if (selectedItem) {
       setNewUnitPrice(selectedItem.unitPrice);
       setNewSize('');
+      setExchangeQuantity(selectedItem.quantity);
       setPriceLocked(false);
       setPriceWarning('');
     }
@@ -130,6 +132,7 @@ export default function ExchangeRequestModal({
       setSelectedItemId('');
       setNewSize('');
       setNewUnitPrice('');
+      setExchangeQuantity(1);
       setPriceLocked(false);
       setPriceWarning('');
       setNotes('');
@@ -138,11 +141,11 @@ export default function ExchangeRequestModal({
   }, [open]);
 
   const adjustmentValue = useMemo(() => {
-    if (!selectedItem || newUnitPrice === '') return 0;
-    return (Number(newUnitPrice) - selectedItem.unitPrice) * selectedItem.quantity;
-  }, [selectedItem, newUnitPrice]);
+    if (!selectedItem || newUnitPrice === '' || !exchangeQuantity) return 0;
+    return (Number(newUnitPrice) - selectedItem.unitPrice) * exchangeQuantity;
+  }, [selectedItem, newUnitPrice, exchangeQuantity]);
 
-  const canSubmit = selectedItemId && newSize && newSize !== selectedItem?.size && newUnitPrice !== '';
+  const canSubmit = selectedItemId && newSize && newSize !== selectedItem?.size && newUnitPrice !== '' && exchangeQuantity > 0 && exchangeQuantity <= (selectedItem?.quantity || 1);
 
   const handleConfirm = async () => {
     if (!selectedItem || !canSubmit) return;
@@ -185,7 +188,7 @@ export default function ExchangeRequestModal({
         new_size: newSize,
         old_unit_price: selectedItem.unitPrice,
         new_unit_price: newPrice,
-        quantity: selectedItem.quantity,
+        quantity: exchangeQuantity,
         adjustment_value: adjustmentValue,
         notes: notes.trim() || null,
         created_by: userId,
@@ -255,7 +258,7 @@ export default function ExchangeRequestModal({
 
   return (
     <Dialog open={open} onOpenChange={() => {/* prevent close on outside click */}}>
-      <DialogContent className="max-w-lg" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RefreshCw className="w-5 h-5 text-orange-600" />
@@ -321,9 +324,21 @@ export default function ExchangeRequestModal({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Quantidade</Label>
-                <Input value={selectedItem.quantity} disabled />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Qtd Atual</Label>
+                  <Input value={selectedItem.quantity} disabled />
+                </div>
+                <div className="space-y-2">
+                  <Label>Qtd a Trocar</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={selectedItem.quantity}
+                    value={exchangeQuantity}
+                    onChange={e => setExchangeQuantity(Math.min(selectedItem.quantity, Math.max(1, Number(e.target.value) || 1)))}
+                  />
+                </div>
               </div>
 
               <div className={`rounded-lg p-3 text-sm font-medium ${
