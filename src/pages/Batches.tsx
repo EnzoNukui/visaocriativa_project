@@ -439,7 +439,7 @@ function BatchDetail({ batchId, batchNumber, onRefresh, isAdmin }: { batchId: st
   };
 
   const statusLabels: Record<string, string> = {
-    pending: 'Pendente', in_production: 'Em Produção', delivered: 'Entregue',
+    pending: 'Pendente', in_production: 'Em Produção', exchange_requested: 'Troca Solicitada', delivered: 'Entregue',
     paid: 'Pago', awaiting_payment: 'Aguardando Pgto', ready: 'Pronto', cancelled: 'Cancelado',
   };
 
@@ -485,14 +485,18 @@ function BatchDetail({ batchId, batchNumber, onRefresh, isAdmin }: { batchId: st
                         {isAdmin && <td className="p-2 text-right">R$ {Number(o.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
                         {isAdmin && <td className="p-2 text-right">R$ {Number(o.supplier_total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
                         <td className="p-2">
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                             o.status === 'delivered' ? 'bg-green-100 text-green-700' :
                             o.status === 'paid' ? 'bg-blue-100 text-blue-700' :
                             o.status === 'cancelled' ? 'bg-red-100 text-red-700' :
                             o.status === 'ready' ? 'bg-purple-100 text-purple-700' :
                             o.status === 'in_production' ? 'bg-yellow-100 text-yellow-700' :
+                            o.status === 'exchange_requested' ? 'bg-orange-100 text-orange-700' :
                             'bg-muted text-muted-foreground'
-                          }`}>{statusLabels[o.status] || o.status}</span>
+                          }`}>
+                            {o.status === 'exchange_requested' && <RefreshCw className="w-3 h-3" />}
+                            {statusLabels[o.status] || o.status}
+                          </span>
                         </td>
                         <td className="p-2 text-muted-foreground">{new Date(o.created_at).toLocaleDateString('pt-BR')}</td>
                       </tr>
