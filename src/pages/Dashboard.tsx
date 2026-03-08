@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, Truck } from 'lucide-react';
+import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const statusLabels: Record<string, string> = {
@@ -28,8 +28,6 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { orders, loading } = useOrders();
 
-  const isSupplier = user?.activeRole === 'supplier';
-
   const nonCancelled = orders.filter(o => o.status !== 'cancelled');
   const totalRevenue = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
   const totalSupplierCost = nonCancelled.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
@@ -38,8 +36,8 @@ const Dashboard = () => {
   const settledProfit = totalProfit - pendingProfit;
   const pending = orders.filter(o => o.status === 'pending' || o.status === 'awaiting_payment').length;
   const production = orders.filter(o => o.status === 'in_production').length;
-  const delivered = orders.filter(o => o.status === 'delivered').length;
 
+  const isSupplier = user?.activeRole === 'supplier';
   const recentOrders = orders.slice(0, 8);
 
   if (loading) {
@@ -72,7 +70,6 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-
         {!isSupplier && (
           <Card className="min-w-[160px] w-full h-full min-h-[90px]">
             <CardContent className="p-4 flex items-center gap-3 h-full">
@@ -86,21 +83,17 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         )}
-
-        {!isSupplier && (
-          <Card className="min-w-[160px] w-full h-full min-h-[90px]">
-            <CardContent className="p-4 flex items-center gap-3 h-full">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="w-5 h-5 text-blue-700" />
-              </div>
-              <div className="flex flex-col justify-center min-w-0">
-                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Custo Fornecedor</p>
-                <p className="text-lg font-bold leading-tight whitespace-nowrap">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
+        <Card className="min-w-[160px] w-full h-full min-h-[90px]">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-5 h-5 text-blue-700" />
+            </div>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Custo Fornecedor</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
         {!isSupplier && (
           <Card className="min-w-[160px] w-full h-full min-h-[90px]">
             <CardContent className="p-4 flex items-center gap-3 h-full">
@@ -114,35 +107,28 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         )}
-
-        {!isSupplier && (
-          <Card className="border-yellow-300 bg-yellow-50/50 min-w-[160px] w-full h-full min-h-[90px]">
-            <CardContent className="p-4 flex items-center gap-3 h-full">
-              <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
-                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
-              </div>
-              <div className="flex flex-col justify-center min-w-0">
-                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Pendente Repasse</p>
-                <p className="text-lg font-bold leading-tight whitespace-nowrap text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {!isSupplier && (
-          <Card className="border-green-300 bg-green-50/50 min-w-[160px] w-full h-full min-h-[90px]">
-            <CardContent className="p-4 flex items-center gap-3 h-full">
-              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="w-5 h-5 text-green-700" />
-              </div>
-              <div className="flex flex-col justify-center min-w-0">
-                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Lucro Repassado</p>
-                <p className="text-lg font-bold leading-tight whitespace-nowrap text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
+        <Card className="border-yellow-300 bg-yellow-50/50 min-w-[160px] w-full h-full min-h-[90px]">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
+              <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
+            </div>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Pendente Repasse</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-green-300 bg-green-50/50 min-w-[160px] w-full h-full min-h-[90px]">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-5 h-5 text-green-700" />
+            </div>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Lucro Repassado</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
             <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
@@ -154,7 +140,6 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-
         <Card className="min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
             <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -163,18 +148,6 @@ const Dashboard = () => {
             <div className="flex flex-col justify-center min-w-0">
               <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Em Produção</p>
               <p className="text-lg font-bold leading-tight whitespace-nowrap">{production}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-[160px] w-full h-full min-h-[90px]">
-          <CardContent className="p-4 flex items-center gap-3 h-full">
-            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
-              <Truck className="w-5 h-5 text-green-700" />
-            </div>
-            <div className="flex flex-col justify-center min-w-0">
-              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Entregues</p>
-              <p className="text-lg font-bold leading-tight whitespace-nowrap">{delivered}</p>
             </div>
           </CardContent>
         </Card>
@@ -195,7 +168,7 @@ const Dashboard = () => {
                     <th className="pb-2 pr-4">Nº</th>
                     <th className="pb-2 pr-4">Aluno</th>
                     <th className="pb-2 pr-4">Turma</th>
-                    {!isSupplier && <th className="pb-2 pr-4">Total</th>}
+                    <th className="pb-2 pr-4">Total</th>
                     <th className="pb-2 pr-4">Status</th>
                     <th className="pb-2">Data</th>
                   </tr>
@@ -206,7 +179,7 @@ const Dashboard = () => {
                       <td className="py-3 pr-4 font-medium">{order.orderNumber}</td>
                       <td className="py-3 pr-4">{order.studentName}</td>
                       <td className="py-3 pr-4">{order.grade}</td>
-                      {!isSupplier && <td className="py-3 pr-4">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
+                      <td className="py-3 pr-4">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="py-3 pr-4">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-800'}`}>
                           {statusLabels[order.status] || order.status}
