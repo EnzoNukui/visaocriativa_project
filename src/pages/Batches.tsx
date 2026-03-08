@@ -695,7 +695,7 @@ export default function Batches() {
         .eq('batch_id', batchId)
         .eq('status', 'pending');
 
-      toast({ title: 'Repasse complementar confirmado.' });
+      toast({ title: 'Repasse complementar confirmado. Lucro atualizado.' });
       setBatchComplementar(prev => { const n = { ...prev }; delete n[batchId]; return n; });
     } catch {
       toast({ title: 'Erro', description: 'Erro ao confirmar repasse complementar.', variant: 'destructive' });
