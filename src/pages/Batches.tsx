@@ -385,7 +385,7 @@ function AddOrderToBatchDialog({
 }
 
 // --- Batch Detail (expanded) ---
-function BatchDetail({ batchId, batchNumber, onRefresh }: { batchId: string; batchNumber: string; onRefresh: () => void }) {
+function BatchDetail({ batchId, batchNumber, onRefresh, isAdmin }: { batchId: string; batchNumber: string; onRefresh: () => void; isAdmin: boolean }) {
   const [tab, setTab] = useState('orders');
   const [orders, setOrders] = useState<BatchOrder[]>([]);
   const [prodItems, setProdItems] = useState<AggItem[]>([]);
@@ -452,9 +452,11 @@ function BatchDetail({ batchId, batchNumber, onRefresh }: { batchId: string; bat
               <TabsTrigger value="orders">Pedidos</TabsTrigger>
               <TabsTrigger value="production">Produção</TabsTrigger>
             </TabsList>
-            <Button size="sm" variant="outline" onClick={() => setAddOrderOpen(true)}>
-              <PlusCircle className="w-4 h-4 mr-1" /> Adicionar Pedido ao Lote
-            </Button>
+            {isAdmin && (
+              <Button size="sm" variant="outline" onClick={() => setAddOrderOpen(true)}>
+                <PlusCircle className="w-4 h-4 mr-1" /> Adicionar Pedido ao Lote
+              </Button>
+            )}
           </div>
 
           <TabsContent value="orders">
@@ -466,11 +468,11 @@ function BatchDetail({ batchId, batchNumber, onRefresh }: { batchId: string; bat
               <div className="overflow-x-auto border rounded-lg">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-muted/50 border-b text-muted-foreground">
+                   <tr className="bg-muted/50 border-b text-muted-foreground">
                       <th className="p-2 text-left">Nº</th>
                       <th className="p-2 text-left">Aluno</th>
-                      <th className="p-2 text-right">Total</th>
-                      <th className="p-2 text-right">Custo</th>
+                      {isAdmin && <th className="p-2 text-right">Total</th>}
+                      {isAdmin && <th className="p-2 text-right">Custo</th>}
                       <th className="p-2 text-left">Status</th>
                       <th className="p-2 text-left">Data</th>
                     </tr>
@@ -480,9 +482,18 @@ function BatchDetail({ batchId, batchNumber, onRefresh }: { batchId: string; bat
                       <tr key={o.id} className="border-b last:border-0">
                         <td className="p-2 font-medium">{o.order_number}</td>
                         <td className="p-2">{o.student_name}</td>
-                        <td className="p-2 text-right">R$ {Number(o.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                        <td className="p-2 text-right">R$ {Number(o.supplier_total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                        <td className="p-2">{statusLabels[o.status] || o.status}</td>
+                        {isAdmin && <td className="p-2 text-right">R$ {Number(o.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
+                        {isAdmin && <td className="p-2 text-right">R$ {Number(o.supplier_total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
+                        <td className="p-2">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            o.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                            o.status === 'paid' ? 'bg-blue-100 text-blue-700' :
+                            o.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                            o.status === 'ready' ? 'bg-purple-100 text-purple-700' :
+                            o.status === 'in_production' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-muted text-muted-foreground'
+                          }`}>{statusLabels[o.status] || o.status}</span>
+                        </td>
                         <td className="p-2 text-muted-foreground">{new Date(o.created_at).toLocaleDateString('pt-BR')}</td>
                       </tr>
                     ))}
@@ -519,6 +530,7 @@ function BatchDetail({ batchId, batchNumber, onRefresh }: { batchId: string; bat
 export default function Batches() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isAdmin = user?.activeRole === 'admin';
   const [batches, setBatches] = useState<BatchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
@@ -694,12 +706,16 @@ export default function Batches() {
                       <Package className="w-3.5 h-3.5 text-muted-foreground" />
                       <strong>{batch.total_orders}</strong> pedidos
                     </span>
-                    <span>
-                      R$ {Number(batch.total_sale_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-green-600">
-                      Lucro R$ {Number(batch.total_profit).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
+                    {isAdmin && (
+                      <>
+                        <span>
+                          R$ {Number(batch.total_sale_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-green-600">
+                          Lucro R$ {Number(batch.total_profit).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -708,17 +724,21 @@ export default function Batches() {
                       {isOpen ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
                       {isOpen ? 'Fechar' : 'Visualizar'}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setRepasseBatch(batch)}>
-                      <CheckCircle className="w-4 h-4 mr-1" /> Repasse
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleteBatch(batch)}>
-                      <Trash2 className="w-4 h-4 mr-1" /> Excluir
-                    </Button>
+                    {isAdmin && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => setRepasseBatch(batch)}>
+                          <CheckCircle className="w-4 h-4 mr-1" /> Repasse
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleteBatch(batch)}>
+                          <Trash2 className="w-4 h-4 mr-1" /> Excluir
+                        </Button>
+                      </>
+                    )}
                   </div>
 
                   {/* Expanded detail */}
                   {isOpen && (
-                    <BatchDetail batchId={batch.id} batchNumber={batch.batch_number} onRefresh={fetchBatches} />
+                    <BatchDetail batchId={batch.id} batchNumber={batch.batch_number} onRefresh={fetchBatches} isAdmin={isAdmin} />
                   )}
                 </CardContent>
               </Card>
