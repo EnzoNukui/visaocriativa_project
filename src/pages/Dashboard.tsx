@@ -64,9 +64,9 @@ const Dashboard = () => {
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
               <ShoppingCart className="w-5 h-5 text-primary" />
             </div>
-            <div className="flex flex-col justify-center">
-              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Total Pedidos</p>
-              <p className="text-lg font-bold leading-tight">{orders.length}</p>
+            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
+              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Total Pedidos</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap">{orders.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -76,9 +76,9 @@ const Dashboard = () => {
               <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                 <DollarSign className="w-5 h-5 text-green-700" />
               </div>
-              <div className="flex flex-col justify-center">
-                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Receita (Escola)</p>
-                <p className="text-lg font-bold leading-tight">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <div className="flex flex-col justify-center min-w-0 overflow-hidden">
+                <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Receita (Escola)</p>
+                <p className="text-lg font-bold leading-tight whitespace-nowrap">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
@@ -88,9 +88,9 @@ const Dashboard = () => {
             <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
               <DollarSign className="w-5 h-5 text-blue-700" />
             </div>
-            <div className="flex flex-col justify-center">
-              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Custo Fornecedor</p>
-              <p className="text-lg font-bold leading-tight">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
+              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Custo Fornecedor</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
@@ -100,9 +100,9 @@ const Dashboard = () => {
               <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                 <TrendingUp className="w-5 h-5 text-green-700" />
               </div>
-              <div className="flex flex-col justify-center">
-                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Lucro Total</p>
-                <p className="text-lg font-bold leading-tight text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <div className="flex flex-col justify-center min-w-0 overflow-hidden">
+                <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Lucro Total</p>
+                <p className="text-lg font-bold leading-tight whitespace-nowrap text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
@@ -112,9 +112,9 @@ const Dashboard = () => {
             <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
               <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
             </div>
-            <div className="flex flex-col justify-center">
-              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Pendente Repasse</p>
-              <p className="text-lg font-bold leading-tight text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
+              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Pendente Repasse</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
@@ -123,9 +123,9 @@ const Dashboard = () => {
             <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
               <DollarSign className="w-5 h-5 text-green-700" />
             </div>
-            <div className="flex flex-col justify-center">
-              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Lucro Repassado</p>
-              <p className="text-lg font-bold leading-tight text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
+              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Lucro Repassado</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
@@ -134,9 +134,9 @@ const Dashboard = () => {
             <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
               <Clock className="w-5 h-5 text-yellow-700" />
             </div>
-            <div className="flex flex-col justify-center">
-              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Pendentes</p>
-              <p className="text-lg font-bold leading-tight">{pending}</p>
+            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
+              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Pendentes</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap">{pending}</p>
             </div>
           </CardContent>
         </Card>
@@ -145,9 +145,9 @@ const Dashboard = () => {
             <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
               <Package className="w-5 h-5 text-blue-700" />
             </div>
-            <div className="flex flex-col justify-center">
-              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Em Produção</p>
-              <p className="text-lg font-bold leading-tight">{production}</p>
+            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
+              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Em Produção</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap">{production}</p>
             </div>
           </CardContent>
         </Card>
