@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
@@ -26,6 +27,16 @@ interface AggItem {
   total_quantity: number;
 }
 
+interface DeliveryCount {
+  total: number;
+  delivered: number;
+}
+
+interface OrderStatus {
+  id: string;
+  status: string;
+}
+
 interface BatchInfo {
   id: string;
   imported_at: string;
@@ -41,18 +52,52 @@ function groupByProduct(items: AggItem[]) {
     group.push(item);
     map.set(key, group);
   });
-  // Sort sizes within each product
   map.forEach((items) => items.sort((a, b) => sortBySize(a.size, b.size)));
   return Array.from(map.values());
 }
 
-function ProductionTable({ items }: { items: AggItem[] }) {
+function DeliveryBadge({ delivery }: { delivery?: DeliveryCount }) {
+  if (!delivery || delivery.delivered === 0) return null;
+
+  if (delivery.delivered >= delivery.total) {
+    return (
+      <Badge className="bg-green-100 text-green-700 border border-green-300 hover:bg-green-100">
+        ✅ Todos Entregues
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge className="bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-100">
+      📦 {delivery.delivered} de {delivery.total} Entregues
+    </Badge>
+  );
+}
+
+function ProductionTable({ items, orderStatuses }: { items: AggItem[]; orderStatuses?: OrderStatus[] }) {
   const groups = groupByProduct(items);
   const totalPieces = items.reduce((s, i) => s + i.total_quantity, 0);
   const distinctProducts = groups.length;
 
+  // Show per-order delivery badges if we have status info
+  const deliveredOrders = orderStatuses?.filter(o => o.status === 'delivered') || [];
+
   return (
     <div className="space-y-4">
+      {deliveredOrders.length > 0 && orderStatuses && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Status de entrega:</span>
+          {deliveredOrders.length >= orderStatuses.length ? (
+            <Badge className="bg-green-100 text-green-700 border border-green-300 hover:bg-green-100">
+              ✅ Todos os {orderStatuses.length} pedidos entregues
+            </Badge>
+          ) : (
+            <Badge className="bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-100">
+              📦 {deliveredOrders.length} de {orderStatuses.length} pedidos entregues
+            </Badge>
+          )}
+        </div>
+      )}
       {groups.map((group, idx) => (
         <div key={idx}>
           <h4 className="font-semibold text-sm text-foreground mb-1">
@@ -90,27 +135,51 @@ function BatchTab() {
   const [loading, setLoading] = useState(true);
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
   const [batchItems, setBatchItems] = useState<Record<string, AggItem[]>>({});
+  const [batchOrderStatuses, setBatchOrderStatuses] = useState<Record<string, OrderStatus[]>>({});
   const [batchLoading, setBatchLoading] = useState<string | null>(null);
+  const [deliveryCounts, setDeliveryCounts] = useState<Record<string, DeliveryCount>>({});
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('import_batches')
-        .select('id, imported_at, total_orders, batch_number')
-        .eq('status', 'active')
-        .order('imported_at', { ascending: false });
+  const fetchBatches = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('import_batches')
+      .select('id, imported_at, total_orders, batch_number')
+      .eq('status', 'active')
+      .order('imported_at', { ascending: false });
 
-      if (data) {
-        setBatches(data.map(b => ({
-          id: b.id,
-          imported_at: b.imported_at,
-          total_rows: b.total_orders,
-          batch_number: b.batch_number,
-        })));
+    if (data) {
+      setBatches(data.map(b => ({
+        id: b.id,
+        imported_at: b.imported_at,
+        total_rows: b.total_orders,
+        batch_number: b.batch_number,
+      })));
+
+      // Fetch delivery counts for all batches
+      const batchIds = data.map(b => b.id);
+      if (batchIds.length > 0) {
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('import_batch_id, status')
+          .in('import_batch_id', batchIds)
+          .neq('status', 'cancelled');
+
+        if (orders) {
+          const counts: Record<string, DeliveryCount> = {};
+          orders.forEach(o => {
+            const bid = o.import_batch_id!;
+            if (!counts[bid]) counts[bid] = { total: 0, delivered: 0 };
+            counts[bid].total++;
+            if (o.status === 'delivered') counts[bid].delivered++;
+          });
+          setDeliveryCounts(counts);
+        }
       }
-      setLoading(false);
-    })();
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => { fetchBatches(); }, [fetchBatches]);
 
   const toggleBatch = useCallback(async (batchId: string) => {
     if (expandedBatch === batchId) {
@@ -119,21 +188,23 @@ function BatchTab() {
     }
     setExpandedBatch(batchId);
 
-    if (batchItems[batchId]) return; // already loaded
+    if (batchItems[batchId]) return;
 
     setBatchLoading(batchId);
-    // Fetch aggregated items for this batch
     const { data: orders } = await supabase
       .from('orders')
-      .select('id')
+      .select('id, status')
       .eq('import_batch_id', batchId)
       .neq('status', 'cancelled');
 
     if (!orders || orders.length === 0) {
       setBatchItems(prev => ({ ...prev, [batchId]: [] }));
+      setBatchOrderStatuses(prev => ({ ...prev, [batchId]: [] }));
       setBatchLoading(null);
       return;
     }
+
+    setBatchOrderStatuses(prev => ({ ...prev, [batchId]: orders.map(o => ({ id: o.id, status: o.status })) }));
 
     const orderIds = orders.map(o => o.id);
     const { data: items } = await supabase
@@ -141,7 +212,6 @@ function BatchTab() {
       .select('product_id, product_name, size, quantity')
       .in('order_id', orderIds);
 
-    // Aggregate in frontend
     const aggMap = new Map<string, AggItem>();
     (items || []).forEach(i => {
       const key = `${i.product_id}||${i.size}`;
@@ -162,6 +232,14 @@ function BatchTab() {
     setBatchLoading(null);
   }, [expandedBatch, batchItems]);
 
+  const handleRefresh = useCallback(async () => {
+    // Clear cached data so it reloads
+    setBatchItems({});
+    setBatchOrderStatuses({});
+    setExpandedBatch(null);
+    await fetchBatches();
+  }, [fetchBatches]);
+
   if (loading) {
     return <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-16" />)}</div>;
   }
@@ -172,10 +250,18 @@ function BatchTab() {
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleRefresh}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Atualizar
+        </Button>
+      </div>
       {batches.map(batch => {
         const isOpen = expandedBatch === batch.id;
         const items = batchItems[batch.id];
+        const statuses = batchOrderStatuses[batch.id];
         const isLoadingBatch = batchLoading === batch.id;
+        const delivery = deliveryCounts[batch.id];
 
         return (
           <Collapsible key={batch.id} open={isOpen}>
@@ -189,7 +275,10 @@ function BatchTab() {
                     <div className="flex items-center gap-3">
                       {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                       <div>
-                        <p className="font-bold text-sm">{batch.batch_number}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm">{batch.batch_number}</p>
+                          <DeliveryBadge delivery={delivery} />
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {new Date(batch.imported_at).toLocaleDateString('pt-BR')} · {batch.total_rows} pedidos
                         </p>
@@ -207,7 +296,7 @@ function BatchTab() {
                     ) : items && items.length === 0 ? (
                       <p className="text-muted-foreground text-sm text-center py-4">Nenhum item encontrado para este lote.</p>
                     ) : items ? (
-                      <ProductionTable items={items} />
+                      <ProductionTable items={items} orderStatuses={statuses} />
                     ) : null}
                   </div>
                 </CollapsibleContent>
@@ -227,7 +316,6 @@ function AllOrdersTab() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    // Get non-cancelled orders
     const { data: orders } = await supabase
       .from('orders')
       .select('id')
@@ -240,7 +328,6 @@ function AllOrdersTab() {
     }
 
     const orderIds = orders.map(o => o.id);
-    // Fetch in chunks if needed (limit 1000)
     let allOrderItems: any[] = [];
     for (let i = 0; i < orderIds.length; i += 500) {
       const chunk = orderIds.slice(i, i + 500);
@@ -251,7 +338,6 @@ function AllOrdersTab() {
       if (data) allOrderItems = allOrderItems.concat(data);
     }
 
-    // Aggregate
     const aggMap = new Map<string, AggItem>();
     allOrderItems.forEach(i => {
       const key = `${i.product_id}||${i.size}`;
