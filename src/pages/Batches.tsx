@@ -39,6 +39,7 @@ import {
   FileSpreadsheet,
   Package,
 } from 'lucide-react';
+import SupplierComplementarWarning from '@/components/SupplierComplementarWarning';
 
 // Size ordering
 const SIZE_ORDER = ['2', '4', '6', '8', '10', '12', '14', '16', 'PP', 'P', 'M', 'G', 'GG', 'EG', 'XG'];
