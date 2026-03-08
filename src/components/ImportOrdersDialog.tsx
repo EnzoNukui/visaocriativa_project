@@ -426,6 +426,21 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
     let failCount = 0;
     const failErrors: string[] = [];
 
+    // Create import log FIRST so we can link orders to it
+    let importLogId: string | null = null;
+    try {
+      const { data: logData } = await supabase.from('import_logs').insert({
+        imported_by: user.id,
+        file_name: fileName,
+        total_rows: totalRows,
+        total_success: 0,
+        total_errors: 0,
+      }).select('id').single();
+      importLogId = logData?.id ?? null;
+    } catch {
+      console.error('Failed to create import log upfront');
+    }
+
     // Get current highest order number
     const { data: lastOrder } = await supabase
       .from('orders')
