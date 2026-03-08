@@ -158,6 +158,68 @@ export type Database = {
         }
         Relationships: []
       }
+      order_adjustments: {
+        Row: {
+          adjustment_value: number
+          created_at: string | null
+          created_by: string
+          id: string
+          new_size: string
+          new_unit_price: number
+          notes: string | null
+          old_size: string
+          old_unit_price: number
+          order_id: string
+          product_name: string
+          quantity: number
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          adjustment_value: number
+          created_at?: string | null
+          created_by: string
+          id?: string
+          new_size: string
+          new_unit_price: number
+          notes?: string | null
+          old_size: string
+          old_unit_price: number
+          order_id: string
+          product_name: string
+          quantity: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          adjustment_value?: number
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          new_size?: string
+          new_unit_price?: number
+          notes?: string | null
+          old_size?: string
+          old_unit_price?: number
+          order_id?: string
+          product_name?: string
+          quantity?: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_adjustments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           id: string
