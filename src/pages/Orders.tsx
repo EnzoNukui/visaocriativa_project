@@ -588,15 +588,14 @@ function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAm
 }
 
 interface SearchGroupedViewProps {
-  allOrders: Order[] | null;
+  allOrders: OrderWithBatch[] | null;
   loading: boolean;
   batches: BatchMeta[];
-  manualCount: number;
-  filterOrders: (orders: Order[]) => Order[];
-  renderOrderTable: (orders: Order[]) => JSX.Element;
+  filterOrders: (orders: OrderWithBatch[]) => OrderWithBatch[];
+  renderOrderTable: (orders: OrderWithBatch[]) => JSX.Element;
 }
 
-function SearchGroupedView({ allOrders, loading, batches, manualCount, filterOrders, renderOrderTable }: SearchGroupedViewProps) {
+function SearchGroupedView({ allOrders, loading, batches, filterOrders, renderOrderTable }: SearchGroupedViewProps) {
   if (loading || !allOrders) {
     return (
       <div className="space-y-3">
@@ -607,20 +606,55 @@ function SearchGroupedView({ allOrders, loading, batches, manualCount, filterOrd
   }
 
   const filtered = filterOrders(allOrders);
-  
+
   if (filtered.length === 0) {
     return <p className="text-muted-foreground text-sm py-12 text-center">Nenhum pedido encontrado para este filtro.</p>;
   }
 
+  // Group by batch
+  const grouped: Record<string, OrderWithBatch[]> = {};
+  filtered.forEach(o => {
+    const key = o.importBatchId ?? '__manual__';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(o);
+  });
+
+  // Build ordered groups: batches first (by imported_at desc), then manual
+  const batchMap = new Map(batches.map(b => [b.id!, b]));
+  const batchKeys = batches.map(b => b.id!).filter(id => grouped[id]);
+  const hasManual = !!grouped['__manual__'];
+
   return (
-    <Card>
-      <CardContent className="p-0">
-        <div className="p-3 border-b bg-muted/30">
-          <span className="text-sm text-muted-foreground">{filtered.length} resultado(s) encontrado(s)</span>
-        </div>
-        {renderOrderTable(filtered)}
-      </CardContent>
-    </Card>
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">{filtered.length} resultado(s) encontrado(s)</p>
+      {batchKeys.map(batchId => {
+        const batch = batchMap.get(batchId)!;
+        return (
+          <Card key={batchId}>
+            <div className="p-3 border-b bg-muted/30 flex items-center gap-3 text-sm">
+              <span className="font-bold">{batch.batchNumber}</span>
+              {batch.importedAt && <span className="text-xs text-muted-foreground">{new Date(batch.importedAt).toLocaleDateString('pt-BR')}</span>}
+              <span className="text-xs text-muted-foreground ml-auto">{grouped[batchId].length} resultado(s)</span>
+            </div>
+            <CardContent className="p-0">
+              {renderOrderTable(grouped[batchId])}
+            </CardContent>
+          </Card>
+        );
+      })}
+      {hasManual && (
+        <Card>
+          <div className="p-3 border-b bg-muted/30 flex items-center gap-3 text-sm">
+            <span className="font-bold">Sem Lote</span>
+            <span className="text-xs text-muted-foreground">Pedidos criados manualmente</span>
+            <span className="text-xs text-muted-foreground ml-auto">{grouped['__manual__'].length} resultado(s)</span>
+          </div>
+          <CardContent className="p-0">
+            {renderOrderTable(grouped['__manual__'])}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
