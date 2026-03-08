@@ -190,6 +190,7 @@ export function useOrders() {
       repasse_completed: completed,
       repasse_date: completed ? new Date().toISOString() : null,
       repasse_confirmed_by: completed ? userId : null,
+      status: completed ? 'paid' : 'awaiting_payment',
     }).eq('id', id);
     await fetchOrders();
   }, [fetchOrders]);
