@@ -431,6 +431,64 @@ export type Database = {
         }
         Relationships: []
       }
+      repasse_complementar: {
+        Row: {
+          adjustment_id: string
+          adjustment_value: number
+          batch_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string | null
+          id: string
+          order_id: string
+          status: string
+        }
+        Insert: {
+          adjustment_id: string
+          adjustment_value: number
+          batch_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string | null
+          id?: string
+          order_id: string
+          status?: string
+        }
+        Update: {
+          adjustment_id?: string
+          adjustment_value?: number
+          batch_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string | null
+          id?: string
+          order_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repasse_complementar_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "order_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repasse_complementar_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repasse_complementar_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schools: {
         Row: {
           address: string | null
