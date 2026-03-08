@@ -643,24 +643,32 @@ const Orders = () => {
               <div>
                 <p className="font-semibold mb-2">Itens do Pedido</p>
                 <table className="w-full text-xs">
-                  <thead><tr className="border-b text-muted-foreground"><th className="text-left pb-1">Produto</th><th className="text-left pb-1">Tam.</th><th className="text-right pb-1">Qtd.</th><th className="text-right pb-1">Unit.</th><th className="text-right pb-1">Subtotal</th></tr></thead>
+                  <thead><tr className="border-b text-muted-foreground">
+                    <th className="text-left pb-1">Produto</th>
+                    <th className="text-left pb-1">Tam.</th>
+                    <th className="text-right pb-1">Qtd.</th>
+                    {!isSupplier && <th className="text-right pb-1">Unit.</th>}
+                    {!isSupplier && <th className="text-right pb-1">Subtotal</th>}
+                  </tr></thead>
                   <tbody>
                     {selectedOrder.items.map((item, i) => (
                       <tr key={i} className="border-b last:border-0">
                         <td className="py-1.5">{item.productName}</td>
                         <td className="py-1.5">{item.size}</td>
                         <td className="py-1.5 text-right">{item.quantity}</td>
-                        <td className="py-1.5 text-right">R$ {item.unitPrice.toFixed(2)}</td>
-                        <td className="py-1.5 text-right font-medium">R$ {item.total.toFixed(2)}</td>
+                        {!isSupplier && <td className="py-1.5 text-right">R$ {item.unitPrice.toFixed(2)}</td>}
+                        {!isSupplier && <td className="py-1.5 text-right font-medium">R$ {item.total.toFixed(2)}</td>}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="flex justify-between items-center pt-2 border-t font-semibold">
-                <span>Total</span>
-                <span className="text-primary text-lg">R$ {selectedOrder.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
+              {!isSupplier && (
+                <div className="flex justify-between items-center pt-2 border-t font-semibold">
+                  <span>Total</span>
+                  <span className="text-primary text-lg">R$ {selectedOrder.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
