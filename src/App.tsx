@@ -53,7 +53,7 @@ const App = () => (
             <Route path="/products" element={<ProtectedRoute adminOnly><Products /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
             <Route path="/backups" element={<ProtectedRoute adminOnly><Backups /></ProtectedRoute>} />
-            <Route path="/batches" element={<ProtectedRoute adminOnly><Batches /></ProtectedRoute>} />
+            <Route path="/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
             <Route path="/supplier-production" element={<ProtectedRoute supplierOnly><SupplierProduction /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
