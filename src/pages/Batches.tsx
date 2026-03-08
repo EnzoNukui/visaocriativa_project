@@ -763,6 +763,7 @@ export default function Batches() {
 
   return (
     <div className="space-y-6">
+      {!isAdmin && <SupplierComplementarWarning />}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Lotes de Importação</h2>
