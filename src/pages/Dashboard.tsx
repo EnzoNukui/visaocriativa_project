@@ -58,96 +58,96 @@ const Dashboard = () => {
         <p className="text-muted-foreground">Resumo geral do sistema</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-4 items-stretch">
+        <Card className="h-full min-h-[100px] overflow-hidden">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
               <ShoppingCart className="w-5 h-5 text-primary" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Pedidos</p>
-              <p className="text-2xl font-bold">{orders.length}</p>
+            <div className="flex flex-col justify-center">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Total Pedidos</p>
+              <p className="text-lg font-bold leading-tight">{orders.length}</p>
             </div>
           </CardContent>
         </Card>
         {!isSupplier && (
-          <Card>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+          <Card className="h-full min-h-[100px] overflow-hidden">
+            <CardContent className="p-4 flex items-center gap-3 h-full">
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                 <DollarSign className="w-5 h-5 text-green-700" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Receita (Escola)</p>
-                <p className="text-xl font-bold">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <div className="flex flex-col justify-center">
+                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Receita (Escola)</p>
+                <p className="text-lg font-bold leading-tight">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
         )}
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
+        <Card className="h-full min-h-[100px] overflow-hidden">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
               <DollarSign className="w-5 h-5 text-blue-700" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Custo Fornecedor</p>
-              <p className="text-xl font-bold">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <div className="flex flex-col justify-center">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Custo Fornecedor</p>
+              <p className="text-lg font-bold leading-tight">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
         {!isSupplier && (
-          <Card>
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+          <Card className="h-full min-h-[100px] overflow-hidden">
+            <CardContent className="p-4 flex items-center gap-3 h-full">
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                 <TrendingUp className="w-5 h-5 text-green-700" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Lucro Total</p>
-                <p className="text-xl font-bold text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <div className="flex flex-col justify-center">
+                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Lucro Total</p>
+                <p className="text-lg font-bold leading-tight text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
         )}
-        <Card className="border-yellow-300 bg-yellow-50/50">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
+        <Card className="border-yellow-300 bg-yellow-50/50 h-full min-h-[100px] overflow-hidden">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
               <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Pendente Repasse</p>
-              <p className="text-xl font-bold text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <div className="flex flex-col justify-center">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Pendente Repasse</p>
+              <p className="text-lg font-bold leading-tight text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-green-300 bg-green-50/50">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+        <Card className="border-green-300 bg-green-50/50 h-full min-h-[100px] overflow-hidden">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
               <DollarSign className="w-5 h-5 text-green-700" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Lucro Repassado</p>
-              <p className="text-xl font-bold text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <div className="flex flex-col justify-center">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Lucro Repassado</p>
+              <p className="text-lg font-bold leading-tight text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center">
+        <Card className="h-full min-h-[100px] overflow-hidden">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
               <Clock className="w-5 h-5 text-yellow-700" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Pendentes</p>
-              <p className="text-2xl font-bold">{pending}</p>
+            <div className="flex flex-col justify-center">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Pendentes</p>
+              <p className="text-lg font-bold leading-tight">{pending}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
+        <Card className="h-full min-h-[100px] overflow-hidden">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
               <Package className="w-5 h-5 text-blue-700" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Em Produção</p>
-              <p className="text-2xl font-bold">{production}</p>
+            <div className="flex flex-col justify-center">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Em Produção</p>
+              <p className="text-lg font-bold leading-tight">{production}</p>
             </div>
           </CardContent>
         </Card>
