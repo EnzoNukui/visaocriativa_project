@@ -58,95 +58,95 @@ const Dashboard = () => {
         <p className="text-muted-foreground">Resumo geral do sistema</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-4 items-stretch">
-        <Card className="h-full min-h-[100px] overflow-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
+        <Card className="min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
               <ShoppingCart className="w-5 h-5 text-primary" />
             </div>
-            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
-              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Total Pedidos</p>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Total Pedidos</p>
               <p className="text-lg font-bold leading-tight whitespace-nowrap">{orders.length}</p>
             </div>
           </CardContent>
         </Card>
         {!isSupplier && (
-          <Card className="h-full min-h-[100px] overflow-hidden">
+          <Card className="min-w-[160px] w-full h-full min-h-[90px]">
             <CardContent className="p-4 flex items-center gap-3 h-full">
               <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                 <DollarSign className="w-5 h-5 text-green-700" />
               </div>
-              <div className="flex flex-col justify-center min-w-0 overflow-hidden">
-                <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Receita (Escola)</p>
+              <div className="flex flex-col justify-center min-w-0">
+                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Receita (Escola)</p>
                 <p className="text-lg font-bold leading-tight whitespace-nowrap">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
         )}
-        <Card className="h-full min-h-[100px] overflow-hidden">
+        <Card className="min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
             <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
               <DollarSign className="w-5 h-5 text-blue-700" />
             </div>
-            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
-              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Custo Fornecedor</p>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Custo Fornecedor</p>
               <p className="text-lg font-bold leading-tight whitespace-nowrap">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
         {!isSupplier && (
-          <Card className="h-full min-h-[100px] overflow-hidden">
+          <Card className="min-w-[160px] w-full h-full min-h-[90px]">
             <CardContent className="p-4 flex items-center gap-3 h-full">
               <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                 <TrendingUp className="w-5 h-5 text-green-700" />
               </div>
-              <div className="flex flex-col justify-center min-w-0 overflow-hidden">
-                <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Lucro Total</p>
+              <div className="flex flex-col justify-center min-w-0">
+                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Lucro Total</p>
                 <p className="text-lg font-bold leading-tight whitespace-nowrap text-green-600">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </CardContent>
           </Card>
         )}
-        <Card className="border-yellow-300 bg-yellow-50/50 h-full min-h-[100px] overflow-hidden">
+        <Card className="border-yellow-300 bg-yellow-50/50 min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
             <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
               <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
             </div>
-            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
-              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Pendente Repasse</p>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Pendente Repasse</p>
               <p className="text-lg font-bold leading-tight whitespace-nowrap text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-green-300 bg-green-50/50 h-full min-h-[100px] overflow-hidden">
+        <Card className="border-green-300 bg-green-50/50 min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
             <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
               <DollarSign className="w-5 h-5 text-green-700" />
             </div>
-            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
-              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Lucro Repassado</p>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Lucro Repassado</p>
               <p className="text-lg font-bold leading-tight whitespace-nowrap text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="h-full min-h-[100px] overflow-hidden">
+        <Card className="min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
             <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
               <Clock className="w-5 h-5 text-yellow-700" />
             </div>
-            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
-              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Pendentes</p>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Pendentes</p>
               <p className="text-lg font-bold leading-tight whitespace-nowrap">{pending}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="h-full min-h-[100px] overflow-hidden">
+        <Card className="min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
             <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
               <Package className="w-5 h-5 text-blue-700" />
             </div>
-            <div className="flex flex-col justify-center min-w-0 overflow-hidden">
-              <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">Em Produção</p>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Em Produção</p>
               <p className="text-lg font-bold leading-tight whitespace-nowrap">{production}</p>
             </div>
           </CardContent>
