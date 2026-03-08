@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload, ChevronRight, ChevronDown, CheckCircle } from 'lucide-react';
+import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload, ChevronRight, ChevronDown, CheckCircle, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -109,6 +109,8 @@ const Orders = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [batchRepasseConfirm, setBatchRepasseConfirm] = useState<{ id: string; number: string } | null>(null);
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState<{ id: string; number: string } | null>(null);
+  const [batchStatusChange, setBatchStatusChange] = useState<{ id: string; number: string } | null>(null);
+  const [batchStatusConfirm, setBatchStatusConfirm] = useState<{ id: string; number: string; status: string; count: number } | null>(null);
 
   const [batches, setBatches] = useState<BatchMeta[]>([]);
   const [manualCount, setManualCount] = useState(0);
@@ -350,6 +352,23 @@ const Orders = () => {
     }
   };
 
+  const handleBatchStatusChange = async (batchId: string, batchNumber: string, newStatus: string) => {
+    try {
+      await supabase.from('orders').update({ status: newStatus }).eq('import_batch_id', batchId);
+      // Update local state immediately
+      setBatchOrders(prev => ({
+        ...prev,
+        [batchId]: (prev[batchId] || []).map(o => ({ ...o, status: newStatus })),
+      }));
+      setAllOrdersForSearch(null);
+      fetchBatches();
+      const count = (batchOrders[batchId] || []).length;
+      toast({ title: 'Status atualizado', description: `Status de ${count} pedidos alterado para "${statusLabels[newStatus] || newStatus}" com sucesso.` });
+    } catch {
+      toast({ title: 'Erro', description: 'Erro ao alterar status. Tente novamente.', variant: 'destructive' });
+    }
+  };
+
   const handleBatchDelete = async (batchId: string, batchNumber: string) => {
     try {
       const { data: batchOrdersData } = await supabase.from('orders').select('id').eq('import_batch_id', batchId);
@@ -576,6 +595,7 @@ const Orders = () => {
               renderOrderTable={renderOrderTable}
               isAdmin={isAdmin}
               onBatchRepasse={() => setBatchRepasseConfirm({ id: batch.id!, number: batch.batchNumber })}
+              onBatchStatusChange={() => setBatchStatusChange({ id: batch.id!, number: batch.batchNumber })}
               onBatchDelete={() => setBatchDeleteConfirm({ id: batch.id!, number: batch.batchNumber })}
             />
           ))}
@@ -686,6 +706,47 @@ const Orders = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Batch Status Change - select status */}
+      <Dialog open={!!batchStatusChange} onOpenChange={(open) => !open && setBatchStatusChange(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Alterar status do lote</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Alterar status de todos os pedidos do lote <strong>{batchStatusChange?.number}</strong> para:</p>
+          <div className="flex flex-col gap-2">
+            {['awaiting_payment', 'in_production', 'ready', 'delivered', 'paid', 'cancelled'].map(s => (
+              <Button key={s} variant="outline" className="justify-start" onClick={() => {
+                if (batchStatusChange) {
+                  const count = (batchOrders[batchStatusChange.id] || []).length;
+                  setBatchStatusConfirm({ id: batchStatusChange.id, number: batchStatusChange.number, status: s, count });
+                  setBatchStatusChange(null);
+                }
+              }}>
+                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium mr-2 ${statusColors[s] || ''}`}>{statusLabels[s]}</span>
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Status Change - confirm */}
+      <AlertDialog open={!!batchStatusConfirm} onOpenChange={(open) => !open && setBatchStatusConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar alteração de status</AlertDialogTitle>
+            <AlertDialogDescription>
+              Alterar todos os pedidos do lote <strong>{batchStatusConfirm?.number}</strong> para <strong>{statusLabels[batchStatusConfirm?.status || ''] || batchStatusConfirm?.status}</strong>? Esta ação afetará {batchStatusConfirm?.count} pedidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (batchStatusConfirm) { handleBatchStatusChange(batchStatusConfirm.id, batchStatusConfirm.number, batchStatusConfirm.status); setBatchStatusConfirm(null); } }}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!batchDeleteConfirm} onOpenChange={(open) => !open && setBatchDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -724,10 +785,11 @@ interface BatchCardProps {
   isManual?: boolean;
   isAdmin?: boolean;
   onBatchRepasse?: () => void;
+  onBatchStatusChange?: () => void;
   onBatchDelete?: () => void;
 }
 
-function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAmount, isExpanded, onToggle, orders, loading, renderOrderTable, isManual, isAdmin, onBatchRepasse, onBatchDelete }: BatchCardProps) {
+function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAmount, isExpanded, onToggle, orders, loading, renderOrderTable, isManual, isAdmin, onBatchRepasse, onBatchStatusChange, onBatchDelete }: BatchCardProps) {
   return (
     <Card>
       <div className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
@@ -748,6 +810,10 @@ function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAm
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); onBatchRepasse?.(); }}>
               <CheckCircle className="w-3.5 h-3.5" />
               Confirmar Repasse
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); onBatchStatusChange?.(); }}>
+              <RefreshCw className="w-3.5 h-3.5" />
+              Alterar Status
             </Button>
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); onBatchDelete?.(); }}>
               <Trash2 className="w-3.5 h-3.5" />
