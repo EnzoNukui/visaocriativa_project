@@ -250,22 +250,22 @@ const Orders = () => {
 
     const payload = currentValue
       ? {
-          repasse_completed: false,
-          repasse_date: null,
-          repasse_confirmed_by: null,
-          status: 'paid',
-        }
+           repasse_completed: false,
+           repasse_date: null,
+           repasse_confirmed_by: null,
+           status: 'awaiting_payment',
+         }
       : {
-          repasse_completed: true,
-          repasse_date: new Date().toISOString(),
-          repasse_confirmed_by: user.id,
-          status: 'paid',
-        };
+           repasse_completed: true,
+           repasse_date: new Date().toISOString(),
+           repasse_confirmed_by: user.id,
+           status: 'paid',
+         };
 
     await supabase.from('orders').update(payload).eq('id', id);
     invalidateCache();
     toast({
-      title: currentValue ? 'Repasse desmarcado.' : 'Repasse confirmado e pedido marcado como Pago.',
+      title: currentValue ? 'Repasse desmarcado. Status alterado para Aguardando Pagamento.' : 'Repasse confirmado e pedido marcado como Pago.',
     });
   };
 
