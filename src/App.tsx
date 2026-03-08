@@ -11,6 +11,7 @@ import NewOrder from "./pages/NewOrder";
 import Products from "./pages/Products";
 import Users from "./pages/Users";
 import Backups from "./pages/Backups";
+import SupplierProduction from "./pages/SupplierProduction";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Layout from "./components/Layout";
@@ -18,11 +19,12 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) => {
+const ProtectedRoute = ({ children, adminOnly = false, supplierOnly = false }: { children: React.ReactNode; adminOnly?: boolean; supplierOnly?: boolean }) => {
   const { user, isAuthenticated, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!isAuthenticated) return <Navigate to="/" replace />;
   if (adminOnly && user?.activeRole !== 'admin') return <Navigate to="/dashboard" replace />;
+  if (supplierOnly && user?.activeRole !== 'supplier') return <Navigate to="/orders" replace />;
   return <Layout>{children}</Layout>;
 };
 
@@ -50,6 +52,7 @@ const App = () => (
             <Route path="/products" element={<ProtectedRoute adminOnly><Products /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
             <Route path="/backups" element={<ProtectedRoute adminOnly><Backups /></ProtectedRoute>} />
+            <Route path="/supplier-production" element={<ProtectedRoute supplierOnly><SupplierProduction /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
