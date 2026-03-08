@@ -278,14 +278,15 @@ const Orders = () => {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b text-left text-muted-foreground bg-muted/50">
-            <th className="p-3">Nº</th>
-            <th className="p-3">Aluno</th>
-            <th className="p-3 hidden md:table-cell">Turma</th>
-            <th className="p-3">Total</th>
-            <th className="p-3">Status</th>
-            <th className="p-3 hidden md:table-cell">Prazo</th>
-            <th className="p-3 hidden md:table-cell">Data</th>
-            <th className="p-3">Ações</th>
+            <th className="p-3 whitespace-nowrap">Nº</th>
+            <th className="p-3 whitespace-nowrap">Aluno</th>
+            <th className="p-3 whitespace-nowrap">Turma</th>
+            <th className="p-3 whitespace-nowrap">Total</th>
+            <th className="p-3 whitespace-nowrap">Status</th>
+            <th className="p-3 whitespace-nowrap">Prazo</th>
+            <th className="p-3 whitespace-nowrap">Data</th>
+            <th className="p-3 whitespace-nowrap">Repasse</th>
+            <th className="p-3 whitespace-nowrap">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -293,10 +294,10 @@ const Orders = () => {
             const deadline = getDeadlineStatus(order.createdAt);
             return (
               <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30">
-                <td className="p-3 font-medium">{order.orderNumber}</td>
-                <td className="p-3">{order.studentName}</td>
-                <td className="p-3 hidden md:table-cell">{order.grade}</td>
-                <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td className="p-3 font-medium whitespace-nowrap">{order.orderNumber}</td>
+                <td className="p-3 whitespace-nowrap">{order.studentName}</td>
+                <td className="p-3 whitespace-nowrap">{order.grade}</td>
+                <td className="p-3 whitespace-nowrap">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td className="p-3">
                   {isAdmin ? (
                     <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v)}>
@@ -317,31 +318,35 @@ const Orders = () => {
                     </span>
                   )}
                 </td>
-                <td className="p-3 hidden md:table-cell">
+                <td className="p-3 whitespace-nowrap">
                   {order.status !== 'delivered' ? (
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${deadline.color}`}>{deadline.label}</span>
                   ) : (
                     <span className="text-xs text-muted-foreground">Entregue</span>
                   )}
                 </td>
-                <td className="p-3 hidden md:table-cell text-muted-foreground">
+                <td className="p-3 whitespace-nowrap text-muted-foreground">
                   {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                 </td>
-                <td className="p-3">
-                  <div className="flex items-center gap-1">
-                    {isAdmin ? (
-                      <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
-                        <Checkbox
-                          checked={order.repasseCompleted}
-                          onCheckedChange={() => handleRepasseToggle(order.id, order.repasseCompleted)}
-                        />
-                        <span className="text-[10px] text-muted-foreground">Repasse</span>
-                      </label>
+                <td className="p-3 whitespace-nowrap">
+                  {isAdmin ? (
+                    <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
+                      <Checkbox
+                        checked={order.repasseCompleted}
+                        onCheckedChange={() => handleRepasseToggle(order.id, order.repasseCompleted)}
+                      />
+                      <span className="text-[10px] text-muted-foreground">Repasse</span>
+                    </label>
+                  ) : (
+                    order.repasseCompleted ? (
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Repassado</span>
                     ) : (
-                      order.repasseCompleted && (
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Repassado</span>
-                      )
-                    )}
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )
+                  )}
+                </td>
+                <td className="p-3 whitespace-nowrap">
+                  <div className="flex items-center gap-1">
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
                       <Eye className="w-4 h-4" />
                     </Button>
@@ -461,6 +466,7 @@ const Orders = () => {
               orders={batchOrders[batch.id!]}
               loading={!!loadingOrders[batch.id!]}
               renderOrderTable={renderOrderTable}
+              isAdmin={isAdmin}
             />
           ))}
           {manualCount > 0 && (
@@ -547,9 +553,10 @@ interface BatchCardProps {
   loading: boolean;
   renderOrderTable: (orders: Order[]) => JSX.Element;
   isManual?: boolean;
+  isAdmin?: boolean;
 }
 
-function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAmount, isExpanded, onToggle, orders, loading, renderOrderTable, isManual }: BatchCardProps) {
+function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAmount, isExpanded, onToggle, orders, loading, renderOrderTable, isManual, isAdmin }: BatchCardProps) {
   return (
     <Card>
       <button
@@ -569,6 +576,15 @@ function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAm
       </button>
       {isExpanded && (
         <CardContent className="p-0 border-t">
+          {isAdmin && batchKey !== '__manual__' && (
+            <div className="flex justify-end p-3 pb-0">
+              <Button size="sm" variant="outline" asChild>
+                <Link to={`/orders/new?batchId=${batchKey}&batchNumber=${encodeURIComponent(batchNumber)}`}>
+                  <PlusCircle className="w-4 h-4 mr-1" /> Adicionar Pedido ao Lote
+                </Link>
+              </Button>
+            </div>
+          )}
           {loading ? (
             <div className="p-6 space-y-2">
               <Skeleton className="h-4 w-full" />
