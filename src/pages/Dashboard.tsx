@@ -4,6 +4,7 @@ import { useOrders } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const statusLabels: Record<string, string> = {
@@ -31,6 +32,7 @@ const statusColors: Record<string, string> = {
 const Dashboard = () => {
   const { user } = useAuth();
   const { orders, loading } = useOrders();
+  const navigate = useNavigate();
 
   const nonCancelled = orders.filter(o => o.status !== 'cancelled');
   const totalRevenue = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
@@ -53,7 +55,8 @@ const Dashboard = () => {
       const { data } = await supabase
         .from('order_adjustments')
         .select('adjustment_value')
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .neq('adjustment_value', 0);
       if (data) {
         setPendingAdjustments({
           count: data.length,
@@ -176,16 +179,18 @@ const Dashboard = () => {
           </CardContent>
         </Card>
         {isAdmin && pendingAdjustments.count > 0 && (
-          <Card className="border-orange-300 bg-orange-50/50 min-w-[160px] w-full h-full min-h-[90px]">
+          <Card className="border-orange-300 bg-orange-50/50 min-w-[160px] w-full h-full min-h-[90px] cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/adjustments')}>
             <CardContent className="p-4 flex items-center gap-3 h-full">
               <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
                 <RefreshCw className="w-5 h-5 text-orange-700" />
               </div>
               <div className="flex flex-col justify-center min-w-0">
                 <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Ajustes Pendentes</p>
-                <p className="text-lg font-bold leading-tight whitespace-nowrap text-orange-700">{pendingAdjustments.count}</p>
+                <p className={`text-lg font-bold leading-tight whitespace-nowrap ${pendingAdjustments.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {pendingAdjustments.totalValue >= 0 ? '+' : '-'}R$ {Math.abs(pendingAdjustments.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
                 <p className="text-[10px] text-muted-foreground leading-tight whitespace-nowrap">
-                  {pendingAdjustments.totalValue >= 0 ? '+' : ''}R$ {pendingAdjustments.totalValue.toFixed(2)}
+                  {pendingAdjustments.count} ajuste{pendingAdjustments.count !== 1 ? 's' : ''} a resolver
                 </p>
               </div>
             </CardContent>
