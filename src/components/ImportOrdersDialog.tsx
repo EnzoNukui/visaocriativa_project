@@ -472,6 +472,7 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
             status: 'awaiting_payment',
             created_by: user.id,
             order_number: orderNumber,
+            import_batch_id: importLogId,
           })
           .select();
 
@@ -509,17 +510,16 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       }
     }
 
-    // Log import (non-blocking)
-    try {
-      await supabase.from('import_logs').insert({
-        imported_by: user.id,
-        file_name: fileName,
-        total_rows: totalRows,
-        total_success: successCount,
-        total_errors: errors.length + failCount,
-      });
-    } catch {
-      console.error('Failed to save import log');
+    // Update import log with final counts
+    if (importLogId) {
+      try {
+        await supabase.from('import_logs').update({
+          total_success: successCount,
+          total_errors: errors.length + failCount,
+        }).eq('id', importLogId);
+      } catch {
+        console.error('Failed to update import log');
+      }
     }
 
     setResultSummary({ success: successCount, failed: failCount, errors: failErrors });
