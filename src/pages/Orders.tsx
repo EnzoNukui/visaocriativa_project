@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload, ChevronRight, ChevronDown } from 'lucide-react';
+import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload, ChevronRight, ChevronDown, CheckCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -107,6 +107,8 @@ const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [batchRepasseConfirm, setBatchRepasseConfirm] = useState<{ id: string; number: string } | null>(null);
+  const [batchDeleteConfirm, setBatchDeleteConfirm] = useState<{ id: string; number: string } | null>(null);
 
   const [batches, setBatches] = useState<BatchMeta[]>([]);
   const [manualCount, setManualCount] = useState(0);
@@ -332,6 +334,44 @@ const Orders = () => {
     fetchBatches();
   };
 
+  const handleBatchRepasse = async (batchId: string, batchNumber: string) => {
+    if (!user) return;
+    try {
+      await supabase.from('orders').update({
+        repasse_completed: true,
+        repasse_date: new Date().toISOString(),
+        repasse_confirmed_by: user.id,
+        status: 'paid',
+      }).eq('import_batch_id', batchId).neq('status', 'cancelled');
+      invalidateCache();
+      toast({ title: 'Repasse confirmado', description: `Repasse confirmado para todos os pedidos do lote ${batchNumber}.` });
+    } catch {
+      toast({ title: 'Erro', description: 'Erro ao confirmar repasse. Tente novamente.', variant: 'destructive' });
+    }
+  };
+
+  const handleBatchDelete = async (batchId: string, batchNumber: string) => {
+    try {
+      const { data: batchOrdersData } = await supabase.from('orders').select('id').eq('import_batch_id', batchId);
+      const orderIds = (batchOrdersData || []).map(o => o.id);
+      if (orderIds.length > 0) {
+        const { error: itemsErr } = await supabase.from('order_items').delete().in('order_id', orderIds);
+        if (itemsErr) throw itemsErr;
+        const { error: ordersErr } = await supabase.from('orders').delete().eq('import_batch_id', batchId);
+        if (ordersErr) throw ordersErr;
+      }
+      const { error: batchErr } = await supabase.from('import_batches').delete().eq('id', batchId);
+      if (batchErr) throw batchErr;
+
+      setBatches(prev => prev.filter(b => b.id !== batchId));
+      setBatchOrders(prev => { const n = { ...prev }; delete n[batchId]; return n; });
+      setAllOrdersForSearch(null);
+      toast({ title: 'Lote excluído', description: `Lote ${batchNumber} excluído com sucesso.` });
+    } catch {
+      toast({ title: 'Erro', description: 'Erro ao excluir o lote. Tente novamente.', variant: 'destructive' });
+    }
+  };
+
   const filterOrders = <T extends Order>(orders: T[]): T[] => {
     return orders.filter(o => {
       const matchSearch = search.length === 0 || o.studentName.toLowerCase().includes(search.toLowerCase()) || o.orderNumber.toLowerCase().includes(search.toLowerCase());
@@ -534,6 +574,9 @@ const Orders = () => {
               orders={batchOrders[batch.id!]}
               loading={!!loadingOrders[batch.id!]}
               renderOrderTable={renderOrderTable}
+              isAdmin={isAdmin}
+              onBatchRepasse={() => setBatchRepasseConfirm({ id: batch.id!, number: batch.batchNumber })}
+              onBatchDelete={() => setBatchDeleteConfirm({ id: batch.id!, number: batch.batchNumber })}
             />
           ))}
           {manualCount > 0 && (
@@ -626,6 +669,40 @@ const Orders = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={!!batchRepasseConfirm} onOpenChange={(open) => !open && setBatchRepasseConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar repasse do lote</AlertDialogTitle>
+            <AlertDialogDescription>
+              Confirmar repasse para todos os pedidos do lote <strong>{batchRepasseConfirm?.number}</strong>? Todos os pedidos serão marcados como Pagos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (batchRepasseConfirm) { handleBatchRepasse(batchRepasseConfirm.id, batchRepasseConfirm.number); setBatchRepasseConfirm(null); } }}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!batchDeleteConfirm} onOpenChange={(open) => !open && setBatchDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lote</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o lote <strong>{batchDeleteConfirm?.number}</strong> e todos os seus pedidos? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { if (batchDeleteConfirm) { handleBatchDelete(batchDeleteConfirm.id, batchDeleteConfirm.number); setBatchDeleteConfirm(null); } }}>
+              Excluir permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {isAdmin && (
         <ImportOrdersDialog open={importOpen} onOpenChange={setImportOpen} onComplete={invalidateCache} />
       )}
@@ -645,26 +722,40 @@ interface BatchCardProps {
   loading: boolean;
   renderOrderTable: (orders: Order[]) => JSX.Element;
   isManual?: boolean;
+  isAdmin?: boolean;
+  onBatchRepasse?: () => void;
+  onBatchDelete?: () => void;
 }
 
-function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAmount, isExpanded, onToggle, orders, loading, renderOrderTable, isManual }: BatchCardProps) {
+function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAmount, isExpanded, onToggle, orders, loading, renderOrderTable, isManual, isAdmin, onBatchRepasse, onBatchDelete }: BatchCardProps) {
   return (
     <Card>
-      <button
-        className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/30 transition-colors"
-        onClick={onToggle}
-      >
-        {isExpanded ? <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" /> : <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />}
-        <span className="font-bold text-sm">{batchNumber}</span>
-        {importedAt && (
-          <span className="text-xs text-muted-foreground">{new Date(importedAt).toLocaleDateString('pt-BR')}</span>
+      <div className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
+        <button className="flex items-center gap-3 flex-1 text-left" onClick={onToggle}>
+          {isExpanded ? <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" /> : <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />}
+          <span className="font-bold text-sm">{batchNumber}</span>
+          {importedAt && (
+            <span className="text-xs text-muted-foreground">{new Date(importedAt).toLocaleDateString('pt-BR')}</span>
+          )}
+          {isManual && (
+            <span className="text-xs text-muted-foreground">Pedidos criados manualmente</span>
+          )}
+          <span className="text-xs text-muted-foreground ml-auto">{totalOrders} pedido(s)</span>
+          <span className="text-xs font-medium">R$ {totalSaleAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+        </button>
+        {isAdmin && !isManual && (
+          <div className="flex items-center gap-1 shrink-0">
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); onBatchRepasse?.(); }}>
+              <CheckCircle className="w-3.5 h-3.5" />
+              Confirmar Repasse
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); onBatchDelete?.(); }}>
+              <Trash2 className="w-3.5 h-3.5" />
+              Excluir Lote
+            </Button>
+          </div>
         )}
-        {isManual && (
-          <span className="text-xs text-muted-foreground">Pedidos criados manualmente</span>
-        )}
-        <span className="text-xs text-muted-foreground ml-auto">{totalOrders} pedido(s)</span>
-        <span className="text-xs font-medium">R$ {totalSaleAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-      </button>
+      </div>
       {isExpanded && (
         <CardContent className="p-0 border-t">
           {loading ? (
