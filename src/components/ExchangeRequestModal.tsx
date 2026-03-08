@@ -5,9 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Info } from 'lucide-react';
 
 const SIZE_OPTIONS = ['2', '4', '6', '8', '10', '12', '14', '16', 'PP', 'P', 'M', 'G', 'GG', 'EG', 'XG'];
 
@@ -33,6 +34,12 @@ interface ExchangeRequestModalProps {
   onComplete: () => void;
 }
 
+interface RepasseStatus {
+  type: 'not_done' | 'already_done' | 'manual';
+  batchId?: string;
+  repasseDate?: string;
+}
+
 export default function ExchangeRequestModal({
   open,
   onOpenChange,
@@ -50,8 +57,40 @@ export default function ExchangeRequestModal({
   const [priceWarning, setPriceWarning] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [repasseStatus, setRepasseStatus] = useState<RepasseStatus | null>(null);
 
   const selectedItem = useMemo(() => items.find(i => i.id === selectedItemId), [items, selectedItemId]);
+
+  // Fetch repasse status when modal opens
+  useEffect(() => {
+    if (!open) return;
+    const fetchRepasseStatus = async () => {
+      const { data: order } = await supabase
+        .from('orders')
+        .select('import_batch_id, repasse_completed, repasse_date')
+        .eq('id', orderId)
+        .maybeSingle();
+
+      if (!order || !order.import_batch_id) {
+        setRepasseStatus({ type: 'manual' });
+        return;
+      }
+
+      if (order.repasse_completed) {
+        setRepasseStatus({
+          type: 'already_done',
+          batchId: order.import_batch_id,
+          repasseDate: order.repasse_date || undefined,
+        });
+      } else {
+        setRepasseStatus({
+          type: 'not_done',
+          batchId: order.import_batch_id,
+        });
+      }
+    };
+    fetchRepasseStatus();
+  }, [open, orderId]);
 
   useEffect(() => {
     if (selectedItem) {
@@ -94,6 +133,7 @@ export default function ExchangeRequestModal({
       setPriceLocked(false);
       setPriceWarning('');
       setNotes('');
+      setRepasseStatus(null);
     }
   }, [open]);
 
@@ -110,7 +150,6 @@ export default function ExchangeRequestModal({
     try {
       const newPrice = Number(newUnitPrice);
       const newTotal = newPrice * selectedItem.quantity;
-      const newSupplierTotal = selectedItem.supplierPrice * selectedItem.quantity;
 
       // 1. Update order status
       await supabase.from('orders').update({ status: 'exchange_requested' }).eq('id', orderId);
@@ -129,7 +168,6 @@ export default function ExchangeRequestModal({
         .eq('order_id', orderId);
 
       if (allItems) {
-        // The item we just updated will have the new total already
         const totalAmount = allItems.reduce((s, i) => s + Number(i.total), 0);
         const supplierTotal = allItems.reduce((s, i) => s + Number(i.supplier_total), 0);
         await supabase.from('orders').update({
@@ -140,7 +178,7 @@ export default function ExchangeRequestModal({
       }
 
       // 4. Insert adjustment record
-      await supabase.from('order_adjustments').insert({
+      const { data: adjData } = await supabase.from('order_adjustments').insert({
         order_id: orderId,
         product_name: selectedItem.productName,
         old_size: selectedItem.size,
@@ -151,9 +189,25 @@ export default function ExchangeRequestModal({
         adjustment_value: adjustmentValue,
         notes: notes.trim() || null,
         created_by: userId,
-      });
+      }).select('id').single();
 
-      toast({ title: 'Troca solicitada. Ajuste financeiro registrado.' });
+      // 5. Handle repasse logic
+      if (repasseStatus?.type === 'already_done' && repasseStatus.batchId && adjData) {
+        // Create repasse_complementar
+        await supabase.from('repasse_complementar' as any).insert({
+          batch_id: repasseStatus.batchId,
+          order_id: orderId,
+          adjustment_id: adjData.id,
+          adjustment_value: adjustmentValue,
+          status: 'pending',
+        });
+        toast({ title: 'Troca solicitada. Um Repasse Complementar foi criado automaticamente.' });
+      } else if (repasseStatus?.type === 'not_done') {
+        toast({ title: 'Troca solicitada. A diferença será incluída no repasse do lote.' });
+      } else {
+        toast({ title: 'Troca solicitada. Ajuste registrado. Trate a diferença manualmente.' });
+      }
+
       onOpenChange(false);
       onComplete();
     } catch (err) {
@@ -163,6 +217,41 @@ export default function ExchangeRequestModal({
       setSubmitting(false);
     }
   };
+
+  const repasseBanner = useMemo(() => {
+    if (!repasseStatus) return null;
+    if (repasseStatus.type === 'not_done') {
+      return (
+        <Alert className="border-yellow-200 bg-yellow-50">
+          <Info className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-700 text-sm">
+            🟡 Repasse ainda não realizado. A diferença será incluída automaticamente no valor do repasse do lote.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    if (repasseStatus.type === 'already_done') {
+      const dateStr = repasseStatus.repasseDate
+        ? new Date(repasseStatus.repasseDate).toLocaleDateString('pt-BR')
+        : '—';
+      return (
+        <Alert className="border-red-200 bg-red-50">
+          <Info className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-700 text-sm">
+            🔴 Repasse já realizado em {dateStr}. Um Repasse Complementar será criado automaticamente com o valor da diferença.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    return (
+      <Alert className="border-muted bg-muted/50">
+        <Info className="h-4 w-4 text-muted-foreground" />
+        <AlertDescription className="text-muted-foreground text-sm">
+          ⚪ Pedido manual sem lote vinculado. O ajuste deverá ser tratado manualmente.
+        </AlertDescription>
+      </Alert>
+    );
+  }, [repasseStatus]);
 
   return (
     <Dialog open={open} onOpenChange={() => {/* prevent close on outside click */}}>
@@ -175,6 +264,8 @@ export default function ExchangeRequestModal({
         </DialogHeader>
 
         <div className="space-y-4">
+          {repasseBanner}
+
           <div className="space-y-2">
             <Label>Produto</Label>
             <Select value={selectedItemId} onValueChange={setSelectedItemId}>

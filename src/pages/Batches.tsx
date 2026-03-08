@@ -576,6 +576,48 @@ export default function Batches() {
   };
 
   // --- Confirmar Repasse ---
+  const [repasseAdjustments, setRepasseAdjustments] = useState<{ count: number; totalValue: number }>({ count: 0, totalValue: 0 });
+  const [repasseBaseTotal, setRepasseBaseTotal] = useState(0);
+
+  // Load adjustment info when repasse dialog opens
+  useEffect(() => {
+    if (!repasseBatch) {
+      setRepasseAdjustments({ count: 0, totalValue: 0 });
+      setRepasseBaseTotal(0);
+      return;
+    }
+    const loadAdjInfo = async () => {
+      // Get batch orders
+      const { data: batchOrders } = await supabase
+        .from('orders')
+        .select('id, supplier_total_amount, status')
+        .eq('import_batch_id', repasseBatch.id)
+        .neq('status', 'cancelled');
+
+      const baseTotal = (batchOrders || []).reduce((s, o) => s + Number(o.supplier_total_amount), 0);
+      setRepasseBaseTotal(baseTotal);
+
+      // Get pending adjustments for orders in this batch
+      const orderIds = (batchOrders || []).map(o => o.id);
+      if (orderIds.length > 0) {
+        const { data: adjs } = await supabase
+          .from('order_adjustments')
+          .select('adjustment_value')
+          .in('order_id', orderIds)
+          .eq('status', 'pending')
+          .neq('adjustment_value', 0);
+
+        if (adjs && adjs.length > 0) {
+          setRepasseAdjustments({
+            count: adjs.length,
+            totalValue: adjs.reduce((s, a) => s + Number(a.adjustment_value), 0),
+          });
+        }
+      }
+    };
+    loadAdjInfo();
+  }, [repasseBatch]);
+
   const handleConfirmRepasse = async () => {
     if (!repasseBatch || !user) return;
     setActionLoading(true);
@@ -595,14 +637,69 @@ export default function Batches() {
 
       if (error) throw error;
 
+      // Mark related order_adjustments as resolved
+      const orderIds = (updated || []).map(o => o.id);
+      if (orderIds.length > 0) {
+        await supabase
+          .from('order_adjustments')
+          .update({ status: 'resolved', resolved_by: user.id, resolved_at: new Date().toISOString() })
+          .in('order_id', orderIds)
+          .eq('status', 'pending');
+      }
+
       const count = updated?.length || 0;
-      toast({ title: 'Repasse confirmado', description: `Repasse confirmado para ${count} pedidos do lote ${repasseBatch.batch_number}.` });
+      const adjMsg = repasseAdjustments.count > 0 ? ' com ajustes incluídos' : '';
+      toast({ title: 'Repasse confirmado', description: `Repasse confirmado para ${count} pedidos do lote ${repasseBatch.batch_number}${adjMsg}.` });
       setRepasseBatch(null);
       fetchBatches();
     } catch (err: any) {
       toast({ title: 'Erro', description: 'Erro ao confirmar repasse.', variant: 'destructive' });
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // --- Repasse Complementar ---
+  const [batchComplementar, setBatchComplementar] = useState<Record<string, { count: number; totalValue: number }>>({});
+  const [confirmingComplementar, setConfirmingComplementar] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (batches.length === 0 || !isAdmin) return;
+    const loadComplementar = async () => {
+      const batchIds = batches.map(b => b.id);
+      const { data } = await supabase
+        .from('repasse_complementar' as any)
+        .select('batch_id, adjustment_value')
+        .in('batch_id', batchIds)
+        .eq('status', 'pending');
+
+      const map: Record<string, { count: number; totalValue: number }> = {};
+      ((data as any[]) || []).forEach((r: any) => {
+        if (!map[r.batch_id]) map[r.batch_id] = { count: 0, totalValue: 0 };
+        map[r.batch_id].count++;
+        map[r.batch_id].totalValue += Number(r.adjustment_value);
+      });
+      setBatchComplementar(map);
+    };
+    loadComplementar();
+  }, [batches, isAdmin]);
+
+  const handleConfirmComplementar = async (batchId: string) => {
+    if (!user) return;
+    setConfirmingComplementar(batchId);
+    try {
+      await supabase
+        .from('repasse_complementar' as any)
+        .update({ status: 'confirmed', confirmed_by: user.id, confirmed_at: new Date().toISOString() })
+        .eq('batch_id', batchId)
+        .eq('status', 'pending');
+
+      toast({ title: 'Repasse complementar confirmado.' });
+      setBatchComplementar(prev => { const n = { ...prev }; delete n[batchId]; return n; });
+    } catch {
+      toast({ title: 'Erro', description: 'Erro ao confirmar repasse complementar.', variant: 'destructive' });
+    } finally {
+      setConfirmingComplementar(null);
     }
   };
 
@@ -740,6 +837,29 @@ export default function Batches() {
                     )}
                   </div>
 
+                  {/* Repasse Complementar Section */}
+                  {isAdmin && batchComplementar[batch.id] && batchComplementar[batch.id].count > 0 && (
+                    <div className="mt-3 pt-3 border-t rounded-lg border border-orange-200 bg-orange-50 p-3 space-y-2">
+                      <p className="text-sm font-semibold text-orange-700">Repasse Complementar Pendente</p>
+                      <p className={`text-lg font-bold ${batchComplementar[batch.id].totalValue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {batchComplementar[batch.id].totalValue >= 0 ? '+' : '-'}R$ {Math.abs(batchComplementar[batch.id].totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        <span className="text-xs font-normal text-muted-foreground ml-2">
+                          ({batchComplementar[batch.id].totalValue >= 0 ? 'a pagar ao fornecedor' : 'a receber do fornecedor'})
+                        </span>
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                        onClick={() => handleConfirmComplementar(batch.id)}
+                        disabled={confirmingComplementar === batch.id}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        {confirmingComplementar === batch.id ? 'Confirmando...' : 'Confirmar Repasse Complementar'}
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Expanded detail */}
                   {isOpen && (
                     <BatchDetail batchId={batch.id} batchNumber={batch.batch_number} onRefresh={fetchBatches} isAdmin={isAdmin} />
@@ -756,10 +876,37 @@ export default function Batches() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Repasse</AlertDialogTitle>
-            <AlertDialogDescription>
-              Confirmar repasse para todos os pedidos do lote <strong>{repasseBatch?.batch_number}</strong>?
-              <br /><br />
-              Esta ação marcará todos os pedidos como Pagos e confirmará o repasse.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Confirmar repasse para todos os pedidos do lote <strong>{repasseBatch?.batch_number}</strong>?</p>
+                
+                {repasseAdjustments.count > 0 && (
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm space-y-1">
+                    <p className="font-medium text-orange-700">⚠️ Este lote possui {repasseAdjustments.count} ajuste(s) de troca. O valor do repasse já inclui a diferença.</p>
+                  </div>
+                )}
+
+                <div className="rounded-lg border bg-muted/50 p-3 text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span>Valor base (custo fornecedor):</span>
+                    <span>R$ {repasseBaseTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  {repasseAdjustments.count > 0 && (
+                    <div className="flex justify-between">
+                      <span>Ajustes de troca:</span>
+                      <span className={repasseAdjustments.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {repasseAdjustments.totalValue >= 0 ? '+' : ''}R$ {repasseAdjustments.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold border-t pt-1">
+                    <span>Total do repasse:</span>
+                    <span>R$ {(repasseBaseTotal + repasseAdjustments.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground">Esta ação marcará todos os pedidos como Pagos e confirmará o repasse.</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,10 +1,7 @@
-import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders } from '@/hooks/useOrders';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const statusLabels: Record<string, string> = {
@@ -32,7 +29,6 @@ const statusColors: Record<string, string> = {
 const Dashboard = () => {
   const { user } = useAuth();
   const { orders, loading } = useOrders();
-  const navigate = useNavigate();
 
   const nonCancelled = orders.filter(o => o.status !== 'cancelled');
   const totalRevenue = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
@@ -44,28 +40,7 @@ const Dashboard = () => {
   const production = orders.filter(o => o.status === 'in_production').length;
 
   const isSupplier = user?.activeRole === 'supplier';
-  const isAdmin = user?.activeRole === 'admin';
   const recentOrders = orders.slice(0, 8);
-
-  // Fetch pending adjustments count for admin
-  const [pendingAdjustments, setPendingAdjustments] = useState({ count: 0, totalValue: 0 });
-  useEffect(() => {
-    if (!isAdmin) return;
-    const fetchAdj = async () => {
-      const { data } = await supabase
-        .from('order_adjustments')
-        .select('adjustment_value')
-        .eq('status', 'pending')
-        .neq('adjustment_value', 0);
-      if (data) {
-        setPendingAdjustments({
-          count: data.length,
-          totalValue: data.reduce((s, a) => s + Number(a.adjustment_value), 0),
-        });
-      }
-    };
-    fetchAdj();
-  }, [isAdmin, orders]);
 
   if (loading) {
     return (
@@ -178,24 +153,6 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-        {isAdmin && pendingAdjustments.count > 0 && (
-          <Card className="border-orange-300 bg-orange-50/50 min-w-[160px] w-full h-full min-h-[90px] cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/adjustments')}>
-            <CardContent className="p-4 flex items-center gap-3 h-full">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
-                <RefreshCw className="w-5 h-5 text-orange-700" />
-              </div>
-              <div className="flex flex-col justify-center min-w-0">
-                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Ajustes Pendentes</p>
-                <p className={`text-lg font-bold leading-tight whitespace-nowrap ${pendingAdjustments.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {pendingAdjustments.totalValue >= 0 ? '+' : '-'}R$ {Math.abs(pendingAdjustments.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-[10px] text-muted-foreground leading-tight whitespace-nowrap">
-                  {pendingAdjustments.count} ajuste{pendingAdjustments.count !== 1 ? 's' : ''} a resolver
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       <Card>

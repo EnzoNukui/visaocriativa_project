@@ -351,12 +351,29 @@ const Orders = () => {
   const handleBatchRepasse = async (batchId: string, batchNumber: string) => {
     if (!user) return;
     try {
+      // Mark orders as paid
       await supabase.from('orders').update({
         repasse_completed: true,
         repasse_date: new Date().toISOString(),
         repasse_confirmed_by: user.id,
         status: 'paid',
       }).eq('import_batch_id', batchId).neq('status', 'cancelled');
+
+      // Resolve pending adjustments for this batch's orders
+      const { data: batchOrderIds } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('import_batch_id', batchId);
+
+      if (batchOrderIds && batchOrderIds.length > 0) {
+        const orderIds = batchOrderIds.map(o => o.id);
+        await supabase
+          .from('order_adjustments')
+          .update({ status: 'resolved', resolved_by: user.id, resolved_at: new Date().toISOString() })
+          .in('order_id', orderIds)
+          .eq('status', 'pending');
+      }
+
       invalidateCache();
       toast({ title: 'Repasse confirmado', description: `Repasse confirmado para todos os pedidos do lote ${batchNumber}.` });
     } catch {
