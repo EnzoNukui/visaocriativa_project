@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   ArrowLeftRight,
+  ClipboardList,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -24,12 +25,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isAdmin = user?.activeRole === 'admin';
+  const isSupplier = user?.activeRole === 'supplier';
   const hasMultipleRoles = (user?.roles.length || 0) > 1;
 
   const navItems = [
     { to: '/dashboard', label: 'Painel', icon: LayoutDashboard, show: true },
     { to: '/orders', label: 'Pedidos', icon: ShoppingCart, show: true },
     { to: '/orders/new', label: 'Novo Pedido', icon: PlusCircle, show: isAdmin },
+    { to: '/supplier-production', label: 'Lista de Pedidos', icon: ClipboardList, show: isSupplier && !isAdmin },
     { to: '/products', label: 'Produtos', icon: Package, show: isAdmin },
     { to: '/users', label: 'Usuários', icon: Users, show: isAdmin },
     { to: '/backups', label: 'Backups', icon: HardDrive, show: isAdmin },

@@ -426,6 +426,21 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
     let failCount = 0;
     const failErrors: string[] = [];
 
+    // Create import log FIRST so we can link orders to it
+    let importLogId: string | null = null;
+    try {
+      const { data: logData } = await supabase.from('import_logs').insert({
+        imported_by: user.id,
+        file_name: fileName,
+        total_rows: totalRows,
+        total_success: 0,
+        total_errors: 0,
+      }).select('id').single();
+      importLogId = logData?.id ?? null;
+    } catch {
+      console.error('Failed to create import log upfront');
+    }
+
     // Get current highest order number
     const { data: lastOrder } = await supabase
       .from('orders')
@@ -457,6 +472,7 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
             status: 'awaiting_payment',
             created_by: user.id,
             order_number: orderNumber,
+            import_batch_id: importLogId,
           })
           .select();
 
@@ -494,17 +510,16 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       }
     }
 
-    // Log import (non-blocking)
-    try {
-      await supabase.from('import_logs').insert({
-        imported_by: user.id,
-        file_name: fileName,
-        total_rows: totalRows,
-        total_success: successCount,
-        total_errors: errors.length + failCount,
-      });
-    } catch {
-      console.error('Failed to save import log');
+    // Update import log with final counts
+    if (importLogId) {
+      try {
+        await supabase.from('import_logs').update({
+          total_success: successCount,
+          total_errors: errors.length + failCount,
+        }).eq('id', importLogId);
+      } catch {
+        console.error('Failed to update import log');
+      }
     }
 
     setResultSummary({ success: successCount, failed: failCount, errors: failErrors });

@@ -170,6 +170,7 @@ export type Database = {
           created_by: string
           grade: string
           id: string
+          import_batch_id: string | null
           order_number: string
           phone: string
           repasse_amount: number | null
@@ -189,6 +190,7 @@ export type Database = {
           created_by: string
           grade: string
           id?: string
+          import_batch_id?: string | null
           order_number: string
           phone: string
           repasse_amount?: number | null
@@ -208,6 +210,7 @@ export type Database = {
           created_by?: string
           grade?: string
           id?: string
+          import_batch_id?: string | null
           order_number?: string
           phone?: string
           repasse_amount?: number | null
@@ -222,7 +225,15 @@ export type Database = {
           supplier_total_amount?: number
           total_amount?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_logs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_variants: {
         Row: {
