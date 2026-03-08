@@ -385,25 +385,56 @@ function AddOrderToBatchDialog({
   );
 }
 
-// --- Batch Detail (expanded) ---
-function BatchDetail({ batchId, batchNumber, onRefresh, isAdmin }: { batchId: string; batchNumber: string; onRefresh: () => void; isAdmin: boolean }) {
-  const [tab, setTab] = useState('orders');
-  const [orders, setOrders] = useState<BatchOrder[]>([]);
-  const [prodItems, setProdItems] = useState<AggItem[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(true);
-  const [loadingProd, setLoadingProd] = useState(false);
-  const [addOrderOpen, setAddOrderOpen] = useState(false);
+  // --- Batch Detail (expanded) ---
+  function BatchDetail({ batchId, batchNumber, onRefresh, isAdmin }: { batchId: string; batchNumber: string; onRefresh: () => void; isAdmin: boolean }) {
+    const [tab, setTab] = useState('orders');
+    const [orders, setOrders] = useState<BatchOrder[]>([]);
+    const [prodItems, setProdItems] = useState<AggItem[]>([]);
+    const [loadingOrders, setLoadingOrders] = useState(true);
+    const [loadingProd, setLoadingProd] = useState(false);
+    const [addOrderOpen, setAddOrderOpen] = useState(false);
+    const [exchangeRequests, setExchangeRequests] = useState<any[]>([]);
+    const [loadingExchanges, setLoadingExchanges] = useState(true);
 
-  const fetchOrders = useCallback(async () => {
-    setLoadingOrders(true);
-    const { data } = await supabase
-      .from('orders')
-      .select('id, order_number, student_name, total_amount, supplier_total_amount, status, created_at')
-      .eq('import_batch_id', batchId)
-      .order('created_at', { ascending: true });
-    setOrders(data || []);
-    setLoadingOrders(false);
-  }, [batchId]);
+    const fetchOrders = useCallback(async () => {
+      setLoadingOrders(true);
+      const { data } = await supabase
+        .from('orders')
+        .select('id, order_number, student_name, total_amount, supplier_total_amount, status, created_at')
+        .eq('import_batch_id', batchId)
+        .order('created_at', { ascending: true });
+      setOrders(data || []);
+      setLoadingOrders(false);
+    }, [batchId]);
+
+    const fetchExchangeRequests = useCallback(async () => {
+      setLoadingExchanges(true);
+      const { data: exchangeOrders } = await supabase
+        .from('orders')
+        .select(`
+          id, order_number, student_name, created_at, import_batch_id,
+          order_adjustments!inner(id, product_name, old_size, new_size, quantity, created_at)
+        `)
+        .eq('import_batch_id', batchId)
+        .eq('status', 'exchange_requested')
+        .order('created_at', { ascending: false });
+
+      const exchanges = (exchangeOrders || []).flatMap(order => 
+        order.order_adjustments.map(adj => ({
+          orderId: order.id,
+          studentName: order.student_name,
+          batchNumber: batchNumber,
+          productName: adj.product_name,
+          oldSize: adj.old_size,
+          newSize: adj.new_size,
+          quantity: adj.quantity,
+          createdAt: adj.created_at,
+        }))
+      );
+      
+      setExchangeRequests(exchanges);
+      setLoadingExchanges(false);
+    }, [batchId, batchNumber]);
 
   const fetchProduction = useCallback(async () => {
     setLoadingProd(true);
@@ -432,7 +463,7 @@ function BatchDetail({ batchId, batchNumber, onRefresh, isAdmin }: { batchId: st
     setLoadingProd(false);
   }, [batchId]);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => { fetchOrders(); fetchExchangeRequests(); }, [fetchOrders, fetchExchangeRequests]);
 
   const handleTabChange = (val: string) => {
     setTab(val);
@@ -444,21 +475,55 @@ function BatchDetail({ batchId, batchNumber, onRefresh, isAdmin }: { batchId: st
     paid: 'Pago', awaiting_payment: 'Aguardando Pgto', ready: 'Pronto', cancelled: 'Cancelado',
   };
 
-  return (
-    <div className="mt-4 pt-4 border-t space-y-3">
-      <div className="flex items-center justify-between">
-        <Tabs value={tab} onValueChange={handleTabChange} className="flex-1">
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="orders">Pedidos</TabsTrigger>
-              <TabsTrigger value="production">Produção</TabsTrigger>
-            </TabsList>
-            {isAdmin && (
-              <Button size="sm" variant="outline" onClick={() => setAddOrderOpen(true)}>
-                <PlusCircle className="w-4 h-4 mr-1" /> Adicionar Pedido ao Lote
-              </Button>
-            )}
+    // Sort orders to put exchange_requested at the top
+    const sortedOrders = [...orders].sort((a, b) => {
+      if (a.status === 'exchange_requested' && b.status !== 'exchange_requested') return -1;
+      if (b.status === 'exchange_requested' && a.status !== 'exchange_requested') return 1;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+
+    return (
+      <div className="mt-4 pt-4 border-t space-y-3">
+        {/* Trocas Pendentes Section */}
+        {!loadingExchanges && exchangeRequests.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <h3 className="font-bold text-amber-800 flex items-center gap-2">
+              ⚠️ Trocas Pendentes
+            </h3>
+            <div className="space-y-2">
+              {exchangeRequests.map((exchange, idx) => (
+                <div key={idx} className="bg-white border border-amber-100 rounded-lg p-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 space-y-1">
+                      <p><span className="font-medium">Aluno:</span> {exchange.studentName}</p>
+                      <p><span className="font-medium">Produto:</span> {exchange.productName}</p>
+                      <p><span className="font-medium">Alteração:</span> Tamanho {exchange.oldSize} → {exchange.newSize}</p>
+                      <p><span className="font-medium">Quantidade:</span> {exchange.quantity}</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2.5 py-0.5 text-xs font-semibold animate-pulse">
+                      <RefreshCw className="w-3 h-3" />
+                      Troca Solicitada
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <Tabs value={tab} onValueChange={handleTabChange} className="flex-1">
+            <div className="flex items-center justify-between">
+              <TabsList>
+                <TabsTrigger value="orders">Pedidos</TabsTrigger>
+                <TabsTrigger value="production">Produção</TabsTrigger>
+              </TabsList>
+              {isAdmin && (
+                <Button size="sm" variant="outline" onClick={() => setAddOrderOpen(true)}>
+                  <PlusCircle className="w-4 h-4 mr-1" /> Adicionar Pedido ao Lote
+                </Button>
+              )}
+            </div>
 
           <TabsContent value="orders">
             {loadingOrders ? (
@@ -478,30 +543,30 @@ function BatchDetail({ batchId, batchNumber, onRefresh, isAdmin }: { batchId: st
                       <th className="p-2 text-left">Data</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {orders.map(o => (
-                      <tr key={o.id} className="border-b last:border-0">
-                        <td className="p-2 font-medium">{o.order_number}</td>
-                        <td className="p-2">{o.student_name}</td>
-                        {isAdmin && <td className="p-2 text-right">R$ {Number(o.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
-                        {isAdmin && <td className="p-2 text-right">R$ {Number(o.supplier_total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
-                        <td className="p-2">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                            o.status === 'delivered' ? 'bg-green-100 text-green-700' :
-                            o.status === 'paid' ? 'bg-blue-100 text-blue-700' :
-                            o.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                            o.status === 'ready' ? 'bg-purple-100 text-purple-700' :
-                            o.status === 'in_production' ? 'bg-yellow-100 text-yellow-700' :
-                            o.status === 'exchange_requested' ? 'bg-orange-100 text-orange-700' :
-                            'bg-muted text-muted-foreground'
-                          }`}>
-                            {o.status === 'exchange_requested' && <RefreshCw className="w-3 h-3" />}
-                            {statusLabels[o.status] || o.status}
-                          </span>
-                        </td>
-                        <td className="p-2 text-muted-foreground">{new Date(o.created_at).toLocaleDateString('pt-BR')}</td>
-                      </tr>
-                    ))}
+                   <tbody>
+                     {sortedOrders.map(o => (
+                       <tr key={o.id} className={`border-b last:border-0 ${o.status === 'exchange_requested' ? 'border-l-4 border-l-orange-400' : ''}`}>
+                         <td className="p-2 font-medium">{o.order_number}</td>
+                         <td className="p-2">{o.student_name}</td>
+                         {isAdmin && <td className="p-2 text-right">R$ {Number(o.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
+                         {isAdmin && <td className="p-2 text-right">R$ {Number(o.supplier_total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
+                         <td className="p-2">
+                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                             o.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                             o.status === 'paid' ? 'bg-blue-100 text-blue-700' :
+                             o.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                             o.status === 'ready' ? 'bg-purple-100 text-purple-700' :
+                             o.status === 'in_production' ? 'bg-yellow-100 text-yellow-700' :
+                             o.status === 'exchange_requested' ? 'bg-orange-100 text-orange-700 border-orange-200 animate-pulse' :
+                             'bg-muted text-muted-foreground'
+                           }`}>
+                             {o.status === 'exchange_requested' && <RefreshCw className="w-3 h-3" />}
+                             {statusLabels[o.status] || o.status}
+                           </span>
+                         </td>
+                         <td className="p-2 text-muted-foreground">{new Date(o.created_at).toLocaleDateString('pt-BR')}</td>
+                       </tr>
+                     ))}
                   </tbody>
                 </table>
               </div>
@@ -845,18 +910,18 @@ export default function Batches() {
                     )}
                   </div>
 
-                  {/* Repasse Complementar Section */}
-                  {isAdmin && batchComplementar[batch.id] && batchComplementar[batch.id].count > 0 && (
-                    <div className="mt-3 pt-3 border-t rounded-lg border border-orange-200 bg-orange-50 p-3 space-y-2">
-                      <p className="text-sm font-semibold text-orange-700">Repasse Complementar Pendente</p>
-                      <p className="text-lg font-bold">
-                        <span className={batchComplementar[batch.id].totalValue <= 0 ? 'text-green-600' : 'text-red-600'}>
-                          {batchComplementar[batch.id].totalValue >= 0 ? '+' : '-'}R$ {Math.abs(batchComplementar[batch.id].totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                        <span className={`text-xs font-normal ml-2 ${batchComplementar[batch.id].totalValue <= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          ({batchComplementar[batch.id].totalValue >= 0 ? 'a pagar ao fornecedor' : 'a receber do fornecedor'})
-                        </span>
-                      </p>
+                   {/* Repasse Complementar Section */}
+                   {isAdmin && batchComplementar[batch.id] && batchComplementar[batch.id].count > 0 && (
+                     <div className="mt-3 pt-3 border-t rounded-lg border border-orange-200 bg-orange-50 p-3 space-y-2">
+                       <p className="text-sm font-semibold text-orange-700">Repasse Complementar Pendente</p>
+                       <p className="text-lg font-bold">
+                         <span className={batchComplementar[batch.id].totalValue < 0 ? 'text-green-600' : 'text-red-600'}>
+                           R$ {Math.abs(batchComplementar[batch.id].totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                         </span>
+                         <span className={`text-xs font-normal ml-2 ${batchComplementar[batch.id].totalValue < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                           ({batchComplementar[batch.id].totalValue < 0 ? 'a receber do fornecedor' : 'a pagar ao fornecedor'})
+                         </span>
+                       </p>
                       <Button
                         size="sm"
                         variant="outline"
