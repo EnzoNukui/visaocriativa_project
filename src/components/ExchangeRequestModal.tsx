@@ -222,7 +222,11 @@ export default function ExchangeRequestModal({
                     min={0}
                     value={newUnitPrice}
                     onChange={e => setNewUnitPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                    disabled={priceLocked}
                   />
+                  {priceWarning && (
+                    <p className="text-xs text-orange-600">{priceWarning}</p>
+                  )}
                 </div>
               </div>
 
