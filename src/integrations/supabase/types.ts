@@ -80,6 +80,54 @@ export type Database = {
         }
         Relationships: []
       }
+      import_batches: {
+        Row: {
+          batch_number: string
+          file_name: string
+          id: string
+          imported_at: string
+          imported_by: string
+          status: string
+          total_errors: number
+          total_items: number
+          total_orders: number
+          total_profit: number
+          total_rows_read: number
+          total_sale_amount: number
+          total_supplier_amount: number
+        }
+        Insert: {
+          batch_number: string
+          file_name: string
+          id?: string
+          imported_at?: string
+          imported_by: string
+          status?: string
+          total_errors?: number
+          total_items?: number
+          total_orders?: number
+          total_profit?: number
+          total_rows_read?: number
+          total_sale_amount?: number
+          total_supplier_amount?: number
+        }
+        Update: {
+          batch_number?: string
+          file_name?: string
+          id?: string
+          imported_at?: string
+          imported_by?: string
+          status?: string
+          total_errors?: number
+          total_items?: number
+          total_orders?: number
+          total_profit?: number
+          total_rows_read?: number
+          total_sale_amount?: number
+          total_supplier_amount?: number
+        }
+        Relationships: []
+      }
       import_logs: {
         Row: {
           file_name: string
@@ -230,7 +278,7 @@ export type Database = {
             foreignKeyName: "orders_import_batch_id_fkey"
             columns: ["import_batch_id"]
             isOneToOne: false
-            referencedRelation: "import_logs"
+            referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
         ]

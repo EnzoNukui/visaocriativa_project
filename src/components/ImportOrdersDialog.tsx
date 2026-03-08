@@ -132,6 +132,21 @@ function getFallbackPrice(product: { id: string; name: string; variants: { size:
   return null;
 }
 
+async function generateBatchNumber(): Promise<string> {
+  const { data } = await supabase
+    .from('import_batches')
+    .select('batch_number')
+    .order('imported_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const lastNum = data?.batch_number
+    ? parseInt(data.batch_number.replace('LOTE-', ''))
+    : 0;
+
+  return `LOTE-${String(lastNum + 1).padStart(4, '0')}`;
+}
+
 // --- Component ---
 
 export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: Props) {
@@ -148,7 +163,7 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
   const [totalSheets, setTotalSheets] = useState(0);
   const [totalSkipped, setTotalSkipped] = useState(0);
   const [duplicateWarning, setDuplicateWarning] = useState('');
-  const [resultSummary, setResultSummary] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+  const [resultSummary, setResultSummary] = useState<{ success: number; failed: number; errors: string[]; batchNumber?: string } | null>(null);
 
   const reset = useCallback(() => {
     setStep('upload');
@@ -191,7 +206,6 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
   };
 
   const processWorkbook = async (workbook: XLSX.WorkBook, fName: string) => {
-    // Find target sheets
     const targetSheets = workbook.SheetNames.filter(name =>
       name.trim().toLowerCase().includes('por nome')
     );
@@ -201,7 +215,6 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       return;
     }
 
-    // Fetch products with variants
     const { data: products } = await supabase.from('products').select('id, name');
     const { data: variants } = await supabase.from('product_variants').select('*');
     if (!products || !variants) {
@@ -238,17 +251,14 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
         const colB = row[1];
         const colC = row[2];
 
-        // Check student header
         const studentName = isStudentHeader(colA);
         if (studentName) {
           currentStudent = normalizeName(studentName);
           continue;
         }
 
-        // Skip rows with no student context
         if (!currentStudent) continue;
 
-        // Skip if colB and colC both empty (not a product row)
         if ((colB === null || colB === undefined || String(colB).trim() === '') &&
             (colC === null || colC === undefined || String(colC).trim() === '')) {
           continue;
@@ -256,7 +266,6 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
 
         rowCount++;
 
-        // Skip rows matching ignore rules
         if (shouldSkipRow(colA)) {
           skippedCount++;
           continue;
@@ -267,10 +276,8 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
           continue;
         }
 
-        // Parse size
         const size = normalizeSize(colB);
 
-        // Parse quantity
         const rawQty = colC;
         if (rawQty === null || rawQty === undefined || String(rawQty).trim() === '') {
           allErrors.push({ row: rowIdx + 1, student: currentStudent, reason: 'Quantidade inválida' });
@@ -287,25 +294,20 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
         }
         const qty = Math.floor(parsedQty);
 
-        // Normalize product name
         let productNameNorm = colA.toLowerCase().trim();
 
-        // Check ignored products
         if (ignoredProducts.includes(productNameNorm)) {
           skippedCount++;
           continue;
         }
 
-        // Apply aliases
         if (productAliases[productNameNorm]) {
           productNameNorm = productAliases[productNameNorm];
         }
 
-        // Match product
         let matchedProduct = productsWithVariants.find(p => p.name.toLowerCase() === productNameNorm);
 
         if (!matchedProduct) {
-          // Contains match
           matchedProduct = productsWithVariants.find(p =>
             productNameNorm.includes(p.name.toLowerCase()) ||
             p.name.toLowerCase().includes(productNameNorm)
@@ -317,7 +319,6 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
           continue;
         }
 
-        // Get variant with fallback
         const result = getFallbackPrice(matchedProduct, size);
         if (!result) {
           allErrors.push({ row: rowIdx + 1, student: currentStudent, reason: `Produto sem variantes/preço: ${colA}` });
@@ -356,7 +357,6 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       return;
     }
 
-    // Merge duplicates (same student + same product + same size)
     const mergedMap = new Map<string, ResolvedItem>();
     allItems.forEach(item => {
       const key = `${item.studentKey}||${item.productId}||${item.size}`;
@@ -371,7 +371,6 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       }
     });
 
-    // Group by student
     const studentGroups = new Map<string, ResolvedItem[]>();
     mergedMap.forEach(item => {
       const group = studentGroups.get(item.studentKey) || [];
@@ -393,7 +392,6 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       });
     });
 
-    // Duplicate detection
     const today = new Date().toISOString().split('T')[0];
     const { data: existingLogs } = await supabase
       .from('import_logs')
@@ -426,7 +424,51 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
     let failCount = 0;
     const failErrors: string[] = [];
 
-    // Create import log FIRST so we can link orders to it
+    // STEP 1 – Generate batch number with retry
+    let batchNumber = '';
+    let batchId: string | null = null;
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+      try {
+        batchNumber = await generateBatchNumber();
+        const { data: batchData, error: batchError } = await supabase
+          .from('import_batches')
+          .insert({
+            batch_number: batchNumber,
+            imported_by: user.id,
+            file_name: fileName,
+            total_rows_read: totalRows,
+            total_errors: errors.length,
+            status: 'active',
+          })
+          .select('id')
+          .single();
+
+        if (batchError) {
+          // Check for unique violation (23505)
+          if (batchError.code === '23505') {
+            continue; // retry
+          }
+          throw batchError;
+        }
+        batchId = batchData?.id ?? null;
+        break;
+      } catch (err: any) {
+        if (attempt === 9) {
+          toast({ title: 'Erro', description: 'Erro ao gerar número do lote. Tente novamente.', variant: 'destructive' });
+          setStep('preview');
+          return;
+        }
+      }
+    }
+
+    if (!batchId) {
+      toast({ title: 'Erro', description: 'Erro ao gerar número do lote. Tente novamente.', variant: 'destructive' });
+      setStep('preview');
+      return;
+    }
+
+    // Also create legacy import_log
     let importLogId: string | null = null;
     try {
       const { data: logData } = await supabase.from('import_logs').insert({
@@ -438,7 +480,7 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       }).select('id').single();
       importLogId = logData?.id ?? null;
     } catch {
-      console.error('Failed to create import log upfront');
+      console.error('Failed to create import log');
     }
 
     // Get current highest order number
@@ -452,6 +494,11 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
     let lastNumber = lastOrder?.order_number
       ? parseInt(lastOrder.order_number.replace('VC-', ''))
       : 0;
+
+    let totalItemsCount = 0;
+    let totalSaleSum = 0;
+    let totalSupplierSum = 0;
+    let totalProfitSum = 0;
 
     for (const group of groupedOrders) {
       try {
@@ -472,14 +519,14 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
             status: 'awaiting_payment',
             created_by: user.id,
             order_number: orderNumber,
-            import_batch_id: importLogId,
+            import_batch_id: batchId,
           })
           .select();
 
         if (orderError || !orderData || orderData.length === 0) {
           failCount++;
           failErrors.push(`Erro ao criar pedido para ${group.studentName}: ${orderError?.message || 'desconhecido'}`);
-          lastNumber--; // revert number
+          lastNumber--;
           continue;
         }
 
@@ -503,6 +550,10 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
           failCount++;
         } else {
           successCount++;
+          totalItemsCount += group.items.reduce((s, i) => s + i.quantity, 0);
+          totalSaleSum += group.totalSale;
+          totalSupplierSum += group.totalSupplier;
+          totalProfitSum += group.totalProfit;
         }
       } catch (err: any) {
         failCount++;
@@ -510,7 +561,24 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       }
     }
 
-    // Update import log with final counts
+    // STEP 4 – Update batch totals
+    if (batchId) {
+      try {
+        await supabase.from('import_batches').update({
+          total_orders: successCount,
+          total_items: totalItemsCount,
+          total_sale_amount: totalSaleSum,
+          total_supplier_amount: totalSupplierSum,
+          total_profit: totalProfitSum,
+          total_errors: errors.length + failCount,
+          status: successCount === 0 ? 'failed' : 'active',
+        }).eq('id', batchId);
+      } catch {
+        console.error('Failed to update batch totals');
+      }
+    }
+
+    // Update legacy import log
     if (importLogId) {
       try {
         await supabase.from('import_logs').update({
@@ -522,7 +590,12 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       }
     }
 
-    setResultSummary({ success: successCount, failed: failCount, errors: failErrors });
+    // STEP 5 – If no orders created, mark batch as failed
+    if (successCount === 0 && batchId) {
+      toast({ title: 'Erro', description: 'Lote criado mas nenhum pedido foi importado. Tente novamente.', variant: 'destructive' });
+    }
+
+    setResultSummary({ success: successCount, failed: failCount, errors: failErrors, batchNumber });
     setStep('done');
     onComplete();
   };
@@ -659,7 +732,12 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
               <p className="font-semibold text-lg">Importação Concluída</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 space-y-1 text-sm">
-              <p><strong>{resultSummary.success}</strong> pedidos criados com sucesso.</p>
+              {resultSummary.batchNumber && (
+                <p>Lote <strong>{resultSummary.batchNumber}</strong> criado com <strong>{resultSummary.success}</strong> pedidos importados com sucesso.</p>
+              )}
+              {!resultSummary.batchNumber && (
+                <p><strong>{resultSummary.success}</strong> pedidos criados com sucesso.</p>
+              )}
               {resultSummary.failed > 0 && (
                 <p className="text-red-600"><strong>{resultSummary.failed}</strong> alunos com erro — veja a lista abaixo.</p>
               )}
