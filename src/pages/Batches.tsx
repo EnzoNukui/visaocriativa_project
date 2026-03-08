@@ -530,6 +530,7 @@ function BatchDetail({ batchId, batchNumber, onRefresh, isAdmin }: { batchId: st
 export default function Batches() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isAdmin = user?.activeRole === 'admin';
   const [batches, setBatches] = useState<BatchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
@@ -737,7 +738,7 @@ export default function Batches() {
 
                   {/* Expanded detail */}
                   {isOpen && (
-                    <BatchDetail batchId={batch.id} batchNumber={batch.batch_number} onRefresh={fetchBatches} />
+                    <BatchDetail batchId={batch.id} batchNumber={batch.batch_number} onRefresh={fetchBatches} isAdmin={isAdmin} />
                   )}
                 </CardContent>
               </Card>
