@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
@@ -16,28 +17,43 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const { user, logout, switchRole } = useAuth();
+  const perms = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const isAdmin = user?.activeRole === 'admin';
   const hasMultipleRoles = (user?.roles.length || 0) > 1;
+
+  if (!perms) {
+    return (
+      <div className="min-h-screen flex bg-muted">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="space-y-4 w-64">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-64" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const navItems = [
     { to: '/dashboard', label: 'Painel', icon: LayoutDashboard, show: true },
-    { to: '/orders', label: 'Pedidos', icon: ShoppingCart, show: true },
-    { to: '/orders/new', label: 'Novo Pedido', icon: PlusCircle, show: isAdmin },
-    { to: '/products', label: 'Produtos', icon: Package, show: isAdmin },
-    { to: '/users', label: 'Usuários', icon: Users, show: isAdmin },
-    { to: '/backups', label: 'Backups', icon: HardDrive, show: isAdmin },
+    { to: '/orders', label: 'Pedidos', icon: ShoppingCart, show: perms.viewOrders },
+    { to: '/orders/new', label: 'Novo Pedido', icon: PlusCircle, show: perms.createOrder },
+    { to: '/products', label: 'Produtos', icon: Package, show: perms.createOrder },
+    { to: '/users', label: 'Usuários', icon: Users, show: perms.manageUsers },
+    { to: '/backups', label: 'Backups', icon: HardDrive, show: perms.viewFinancial },
   ].filter(i => i.show);
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const handleSwitchRole = () => {

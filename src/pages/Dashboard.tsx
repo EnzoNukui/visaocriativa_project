@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useOrders } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft } from 'lucide-react';
@@ -26,7 +27,19 @@ const statusColors: Record<string, string> = {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const perms = usePermissions();
   const { orders, loading } = useOrders();
+
+  if (!perms || loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
+        </div>
+      </div>
+    );
+  }
 
   const nonCancelled = orders.filter(o => o.status !== 'cancelled');
   const totalRevenue = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
@@ -37,19 +50,7 @@ const Dashboard = () => {
   const pending = orders.filter(o => o.status === 'pending' || o.status === 'awaiting_payment').length;
   const production = orders.filter(o => o.status === 'in_production').length;
 
-  const isSupplier = user?.activeRole === 'supplier';
   const recentOrders = orders.slice(0, 8);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -70,7 +71,7 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-        {!isSupplier && (
+        {perms.viewFinancial && (
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
@@ -94,7 +95,7 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-        {!isSupplier && (
+        {perms.viewFinancial && (
           <Card>
             <CardContent className="p-5 flex items-center gap-4">
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
