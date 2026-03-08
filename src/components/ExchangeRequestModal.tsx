@@ -46,6 +46,8 @@ export default function ExchangeRequestModal({
   const [selectedItemId, setSelectedItemId] = useState('');
   const [newSize, setNewSize] = useState('');
   const [newUnitPrice, setNewUnitPrice] = useState<number | ''>('');
+  const [priceLocked, setPriceLocked] = useState(false);
+  const [priceWarning, setPriceWarning] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -55,14 +57,42 @@ export default function ExchangeRequestModal({
     if (selectedItem) {
       setNewUnitPrice(selectedItem.unitPrice);
       setNewSize('');
+      setPriceLocked(false);
+      setPriceWarning('');
     }
   }, [selectedItem]);
+
+  // Auto-lookup price when new size is selected
+  useEffect(() => {
+    if (!selectedItem || !newSize) return;
+    const lookupPrice = async () => {
+      const { data } = await supabase
+        .from('product_variants')
+        .select('price')
+        .eq('product_id', selectedItem.productId)
+        .eq('size', newSize)
+        .maybeSingle();
+
+      if (data) {
+        setNewUnitPrice(Number(data.price));
+        setPriceLocked(true);
+        setPriceWarning('');
+      } else {
+        setNewUnitPrice('');
+        setPriceLocked(false);
+        setPriceWarning('Preço não encontrado para este tamanho. Insira manualmente.');
+      }
+    };
+    lookupPrice();
+  }, [selectedItem, newSize]);
 
   useEffect(() => {
     if (!open) {
       setSelectedItemId('');
       setNewSize('');
       setNewUnitPrice('');
+      setPriceLocked(false);
+      setPriceWarning('');
       setNotes('');
     }
   }, [open]);
