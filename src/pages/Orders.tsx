@@ -251,10 +251,64 @@ const Orders = () => {
   };
 
   const handleDelete = async (id: string) => {
+    // Find which batch this order belongs to
+    let batchKey: string | null = null;
+    for (const [key, orders] of Object.entries(batchOrders)) {
+      if (orders?.some(o => o.id === id)) {
+        batchKey = key;
+        break;
+      }
+    }
+
     await supabase.from('order_items').delete().eq('order_id', id);
     await supabase.from('orders').delete().eq('id', id);
-    invalidateCache();
-    toast({ title: 'Pedido excluído', description: 'O pedido foi removido com sucesso.' });
+
+    // Remove order from local cache immediately
+    if (batchKey) {
+      setBatchOrders(prev => ({
+        ...prev,
+        [batchKey!]: (prev[batchKey!] || []).filter(o => o.id !== id),
+      }));
+    }
+
+    // Recalculate batch totals from DB
+    const actualBatchId = batchKey === '__manual__' ? null : batchKey;
+    let query = supabase.from('orders').select('total_amount, supplier_total_amount').neq('status', 'cancelled');
+    if (actualBatchId) {
+      query = query.eq('import_batch_id', actualBatchId);
+    } else {
+      query = query.is('import_batch_id', null);
+    }
+    const { data: remaining } = await query;
+
+    const newCount = remaining?.length ?? 0;
+    const newTotal = remaining?.reduce((s, o) => s + Number(o.total_amount), 0) ?? 0;
+    const newSupplier = remaining?.reduce((s, o) => s + Number(o.supplier_total_amount), 0) ?? 0;
+
+    if (actualBatchId) {
+      // Update import_batches in DB
+      await supabase.from('import_batches').update({
+        total_orders: newCount,
+        total_sale_amount: newTotal,
+        total_supplier_amount: newSupplier,
+        total_profit: newTotal - newSupplier,
+      }).eq('id', actualBatchId);
+
+      // Update local batch state
+      setBatches(prev => prev.map(b =>
+        b.id === actualBatchId
+          ? { ...b, totalOrders: newCount, totalSaleAmount: newTotal }
+          : b
+      ));
+    } else {
+      setManualCount(newCount);
+      setManualTotal(newTotal);
+    }
+
+    // Clear search cache
+    setAllOrdersForSearch(null);
+
+    toast({ title: 'Pedido excluído', description: 'Pedido excluído. Totais do lote atualizados.' });
   };
 
   const invalidateCache = () => {
