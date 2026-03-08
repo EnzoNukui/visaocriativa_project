@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload, ChevronRight, ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import ImportOrdersDialog from '@/components/ImportOrdersDialog';
 import type { Order } from '@/hooks/useOrders';
@@ -105,6 +106,7 @@ const Orders = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const [batches, setBatches] = useState<BatchMeta[]>([]);
   const [manualCount, setManualCount] = useState(0);
@@ -339,6 +341,7 @@ const Orders = () => {
             <th className="p-3">Status</th>
             <th className="p-3 hidden md:table-cell">Prazo</th>
             <th className="p-3 hidden md:table-cell">Data</th>
+            <th className="p-3">Repasse</th>
             <th className="p-3">Ações</th>
           </tr>
         </thead>
@@ -356,7 +359,6 @@ const Orders = () => {
                     <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v)}>
                       <SelectTrigger className="h-7 w-36 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pending">Pendente</SelectItem>
                         <SelectItem value="awaiting_payment">Aguardando Pagamento</SelectItem>
                         <SelectItem value="paid">Pago</SelectItem>
                         <SelectItem value="in_production">Em Produção</SelectItem>
@@ -382,25 +384,29 @@ const Orders = () => {
                   {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                 </td>
                 <td className="p-3">
-                  <div className="flex items-center gap-1">
-                    {isAdmin ? (
-                      <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
-                        <Checkbox
-                          checked={order.repasseCompleted}
-                          onCheckedChange={() => handleRepasseToggle(order.id, order.repasseCompleted)}
-                        />
-                        <span className="text-[10px] text-muted-foreground">Repasse</span>
-                      </label>
+                  {isAdmin ? (
+                    <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
+                      <Checkbox
+                        checked={order.repasseCompleted}
+                        onCheckedChange={() => handleRepasseToggle(order.id, order.repasseCompleted)}
+                      />
+                      <span className="text-[10px] text-muted-foreground">Repasse</span>
+                    </label>
+                  ) : (
+                    order.repasseCompleted ? (
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Repassado</span>
                     ) : (
-                      order.repasseCompleted && (
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Repassado</span>
-                      )
-                    )}
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )
+                  )}
+                </td>
+                <td className="p-3">
+                  <div className="flex items-center gap-1">
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
                       <Eye className="w-4 h-4" />
                     </Button>
                     {isAdmin && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(order.id)}>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setDeleteConfirm({ id: order.id, name: order.studentName })}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     )}
