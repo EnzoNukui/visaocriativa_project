@@ -853,10 +853,37 @@ export default function Batches() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Repasse</AlertDialogTitle>
-            <AlertDialogDescription>
-              Confirmar repasse para todos os pedidos do lote <strong>{repasseBatch?.batch_number}</strong>?
-              <br /><br />
-              Esta ação marcará todos os pedidos como Pagos e confirmará o repasse.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Confirmar repasse para todos os pedidos do lote <strong>{repasseBatch?.batch_number}</strong>?</p>
+                
+                {repasseAdjustments.count > 0 && (
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm space-y-1">
+                    <p className="font-medium text-orange-700">⚠️ Este lote possui {repasseAdjustments.count} ajuste(s) de troca. O valor do repasse já inclui a diferença.</p>
+                  </div>
+                )}
+
+                <div className="rounded-lg border bg-muted/50 p-3 text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span>Valor base (custo fornecedor):</span>
+                    <span>R$ {repasseBaseTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  {repasseAdjustments.count > 0 && (
+                    <div className="flex justify-between">
+                      <span>Ajustes de troca:</span>
+                      <span className={repasseAdjustments.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {repasseAdjustments.totalValue >= 0 ? '+' : ''}R$ {repasseAdjustments.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold border-t pt-1">
+                    <span>Total do repasse:</span>
+                    <span>R$ {(repasseBaseTotal + repasseAdjustments.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground">Esta ação marcará todos os pedidos como Pagos e confirmará o repasse.</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
