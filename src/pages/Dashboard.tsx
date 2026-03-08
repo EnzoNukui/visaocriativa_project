@@ -114,10 +114,14 @@ const Dashboard = () => {
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="flex items-center justify-between gap-2 flex-wrap">
             <span className="text-amber-800 text-sm">
-              Há <strong className={pendingComplementar.totalValue >= 0 ? 'text-green-700' : 'text-red-700'}>
+              Há{' '}
+              <strong className={pendingComplementar.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}>
                 R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </strong> em repasses complementares pendentes
-              ({pendingComplementar.totalValue >= 0 ? 'a pagar ao fornecedor' : 'a receber do fornecedor'}).
+              </strong>{' '}
+              em repasses complementares pendentes
+              <span className={pendingComplementar.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}>
+                {' '}({pendingComplementar.totalValue >= 0 ? 'a pagar ao fornecedor' : 'a receber do fornecedor'})
+              </span>.
             </span>
             <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100" onClick={() => navigate('/batches')}>
               Ver Repasses Complementares
@@ -131,11 +135,16 @@ const Dashboard = () => {
         <Alert className="border-amber-300 bg-amber-50">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800 text-sm">
-            {pendingComplementar.totalValue >= 0 ? (
-              <>Há <strong className="text-green-700">R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> em repasses complementares pendentes. Você receberá R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a mais.</>
-            ) : (
-              <>Há <strong className="text-red-700">R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> em repasses complementares pendentes. Você deverá devolver R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.</>
-            )}
+            Há{' '}
+            <strong className={pendingComplementar.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}>
+              R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </strong>{' '}
+            em repasses complementares pendentes.{' '}
+            <span className={pendingComplementar.totalValue >= 0 ? 'text-green-600' : 'text-red-600'}>
+              {pendingComplementar.totalValue >= 0
+                ? `Você receberá R$ ${Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a mais.`
+                : `Você deverá devolver R$ ${Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`}
+            </span>
           </AlertDescription>
         </Alert>
       )}
