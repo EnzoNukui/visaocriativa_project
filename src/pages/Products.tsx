@@ -61,7 +61,7 @@ const Products = () => {
 
   const handleDeleteProduct = async (id: string) => {
     await deleteProduct(id);
-    toast({ title: 'Produto removido!' });
+    toast({ title: 'Modelo removido!' });
   };
 
   const handleAddProduct = async () => {
@@ -73,7 +73,7 @@ const Products = () => {
     setNewName('');
     setNewVariants([{ size: '', price: 0, supplierPrice: 0 }]);
     setShowAddDialog(false);
-    toast({ title: 'Produto adicionado!' });
+    toast({ title: 'Modelo adicionado!' });
   };
 
   const updateNewVariant = (index: number, field: keyof ProductVariant, value: string | number) => {
@@ -97,7 +97,7 @@ const Products = () => {
     }
     await updateProduct(editingProduct.id, editName.trim(), editVariants);
     setEditingProduct(null);
-    toast({ title: 'Produto atualizado!' });
+    toast({ title: 'Modelo atualizado!' });
   };
 
   if (loading) {
