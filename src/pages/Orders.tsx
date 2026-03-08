@@ -409,11 +409,11 @@ const Orders = () => {
             <th className="p-3">Nº</th>
             <th className="p-3">Aluno</th>
             <th className="p-3">Turma</th>
-            <th className="p-3">Total</th>
+            {!isSupplier && <th className="p-3">Total</th>}
             <th className="p-3">Status</th>
             <th className="p-3">Prazo</th>
             <th className="p-3">Data</th>
-            <th className="p-3">Repasse</th>
+            {!isSupplier && <th className="p-3">Repasse</th>}
             <th className="p-3">Ações</th>
           </tr>
         </thead>
@@ -425,7 +425,7 @@ const Orders = () => {
                 <td className="p-3 font-medium">{order.orderNumber}</td>
                 <td className="p-3">{order.studentName}</td>
                 <td className="p-3">{order.grade}</td>
-                <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                {!isSupplier && <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
                 <td className="p-3">
                   {isAdmin ? (
                     <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v)}>
@@ -455,23 +455,25 @@ const Orders = () => {
                 <td className="p-3 text-muted-foreground">
                   {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                 </td>
-                <td className="p-3">
-                  {isAdmin ? (
-                    <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
-                      <Checkbox
-                        checked={order.repasseCompleted}
-                        onCheckedChange={() => handleRepasseToggle(order.id, order.repasseCompleted)}
-                      />
-                      <span className="text-[10px] text-muted-foreground">Repasse</span>
-                    </label>
-                  ) : (
-                    order.repasseCompleted ? (
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Repassado</span>
+                {!isSupplier && (
+                  <td className="p-3">
+                    {isAdmin ? (
+                      <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
+                        <Checkbox
+                          checked={order.repasseCompleted}
+                          onCheckedChange={() => handleRepasseToggle(order.id, order.repasseCompleted)}
+                        />
+                        <span className="text-[10px] text-muted-foreground">Repasse</span>
+                      </label>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )
-                  )}
-                </td>
+                      order.repasseCompleted ? (
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Repassado</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )
+                    )}
+                  </td>
+                )}
                 <td className="p-3">
                   <div className="flex items-center gap-1">
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
@@ -498,7 +500,7 @@ const Orders = () => {
 
   return (
     <div className="space-y-4">
-      {isSupplier && (
+      {isAdmin && isSupplier && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
@@ -641,24 +643,32 @@ const Orders = () => {
               <div>
                 <p className="font-semibold mb-2">Itens do Pedido</p>
                 <table className="w-full text-xs">
-                  <thead><tr className="border-b text-muted-foreground"><th className="text-left pb-1">Produto</th><th className="text-left pb-1">Tam.</th><th className="text-right pb-1">Qtd.</th><th className="text-right pb-1">Unit.</th><th className="text-right pb-1">Subtotal</th></tr></thead>
+                  <thead><tr className="border-b text-muted-foreground">
+                    <th className="text-left pb-1">Produto</th>
+                    <th className="text-left pb-1">Tam.</th>
+                    <th className="text-right pb-1">Qtd.</th>
+                    {!isSupplier && <th className="text-right pb-1">Unit.</th>}
+                    {!isSupplier && <th className="text-right pb-1">Subtotal</th>}
+                  </tr></thead>
                   <tbody>
                     {selectedOrder.items.map((item, i) => (
                       <tr key={i} className="border-b last:border-0">
                         <td className="py-1.5">{item.productName}</td>
                         <td className="py-1.5">{item.size}</td>
                         <td className="py-1.5 text-right">{item.quantity}</td>
-                        <td className="py-1.5 text-right">R$ {item.unitPrice.toFixed(2)}</td>
-                        <td className="py-1.5 text-right font-medium">R$ {item.total.toFixed(2)}</td>
+                        {!isSupplier && <td className="py-1.5 text-right">R$ {item.unitPrice.toFixed(2)}</td>}
+                        {!isSupplier && <td className="py-1.5 text-right font-medium">R$ {item.total.toFixed(2)}</td>}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="flex justify-between items-center pt-2 border-t font-semibold">
-                <span>Total</span>
-                <span className="text-primary text-lg">R$ {selectedOrder.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
+              {!isSupplier && (
+                <div className="flex justify-between items-center pt-2 border-t font-semibold">
+                  <span>Total</span>
+                  <span className="text-primary text-lg">R$ {selectedOrder.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -803,7 +813,7 @@ function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAm
             <span className="text-xs text-muted-foreground">Pedidos criados manualmente</span>
           )}
           <span className="text-xs text-muted-foreground ml-auto">{totalOrders} pedido(s)</span>
-          <span className="text-xs font-medium">R$ {totalSaleAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          {isAdmin && <span className="text-xs font-medium">R$ {totalSaleAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>}
         </button>
         {isAdmin && !isManual && (
           <div className="flex items-center gap-1 shrink-0">
