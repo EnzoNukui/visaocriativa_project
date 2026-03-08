@@ -111,11 +111,11 @@ const Orders = () => {
   const [manualTotal, setManualTotal] = useState(0);
   const [loadingBatches, setLoadingBatches] = useState(true);
 
-  const [batchOrders, setBatchOrders] = useState<Record<string, Order[]>>({});
+  const [batchOrders, setBatchOrders] = useState<Record<string, OrderWithBatch[]>>({});
   const [loadingOrders, setLoadingOrders] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const [allOrdersForSearch, setAllOrdersForSearch] = useState<Order[] | null>(null);
+  const [allOrdersForSearch, setAllOrdersForSearch] = useState<OrderWithBatch[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
 
   const isSearchActive = search.length > 0 || statusFilter !== 'all';
