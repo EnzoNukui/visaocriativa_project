@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight, RefreshCw as RefreshCwIcon } from 'lucide-react';
+import SupplierComplementarWarning from '@/components/SupplierComplementarWarning';
 
 // Size ordering
 const SIZE_ORDER = ['2', '4', '6', '8', '10', '12', '14', '16', 'PP', 'P', 'M', 'G', 'GG', 'EG', 'XG'];
@@ -383,6 +384,7 @@ function AllOrdersTab() {
 export default function SupplierProduction() {
   return (
     <div className="space-y-6">
+      <SupplierComplementarWarning />
       <div>
         <h2 className="text-2xl font-bold text-foreground">Lista de Pedidos</h2>
         <p className="text-muted-foreground">Itens consolidados para produção</p>

@@ -39,6 +39,7 @@ import {
   FileSpreadsheet,
   Package,
 } from 'lucide-react';
+import SupplierComplementarWarning from '@/components/SupplierComplementarWarning';
 
 // Size ordering
 const SIZE_ORDER = ['2', '4', '6', '8', '10', '12', '14', '16', 'PP', 'P', 'M', 'G', 'GG', 'EG', 'XG'];
@@ -694,7 +695,7 @@ export default function Batches() {
         .eq('batch_id', batchId)
         .eq('status', 'pending');
 
-      toast({ title: 'Repasse complementar confirmado.' });
+      toast({ title: 'Repasse complementar confirmado. Lucro atualizado.' });
       setBatchComplementar(prev => { const n = { ...prev }; delete n[batchId]; return n; });
     } catch {
       toast({ title: 'Erro', description: 'Erro ao confirmar repasse complementar.', variant: 'destructive' });
@@ -762,6 +763,7 @@ export default function Batches() {
 
   return (
     <div className="space-y-6">
+      {!isAdmin && <SupplierComplementarWarning />}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Lotes de Importação</h2>

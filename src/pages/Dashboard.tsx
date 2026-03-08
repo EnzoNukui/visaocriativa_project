@@ -1,7 +1,12 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders } from '@/hooks/useOrders';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const statusLabels: Record<string, string> = {
@@ -29,17 +34,60 @@ const statusColors: Record<string, string> = {
 const Dashboard = () => {
   const { user } = useAuth();
   const { orders, loading } = useOrders();
+  const navigate = useNavigate();
+
+  const isSupplier = user?.activeRole === 'supplier';
+  const isAdmin = user?.activeRole === 'admin';
+
+  // Pending repasse complementar for admin warning
+  const [pendingComplementar, setPendingComplementar] = useState<{ count: number; totalValue: number }>({ count: 0, totalValue: 0 });
+  // Confirmed complementar total for profit impact
+  const [confirmedComplementarTotal, setConfirmedComplementarTotal] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchComplementar = async () => {
+      // Fetch pending
+      const { data: pending } = await supabase
+        .from('repasse_complementar')
+        .select('adjustment_value')
+        .eq('status', 'pending')
+        .neq('adjustment_value', 0);
+
+      if (pending && pending.length > 0) {
+        setPendingComplementar({
+          count: pending.length,
+          totalValue: pending.reduce((s, r) => s + Number(r.adjustment_value), 0),
+        });
+      } else {
+        setPendingComplementar({ count: 0, totalValue: 0 });
+      }
+
+      // Fetch confirmed for profit calculation
+      const { data: confirmed } = await supabase
+        .from('repasse_complementar')
+        .select('adjustment_value')
+        .eq('status', 'confirmed');
+
+      if (confirmed && confirmed.length > 0) {
+        setConfirmedComplementarTotal(confirmed.reduce((s, r) => s + Number(r.adjustment_value), 0));
+      } else {
+        setConfirmedComplementarTotal(0);
+      }
+    };
+    fetchComplementar();
+  }, [user, orders]);
 
   const nonCancelled = orders.filter(o => o.status !== 'cancelled');
   const totalRevenue = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
   const totalSupplierCost = nonCancelled.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
-  const totalProfit = totalRevenue - totalSupplierCost;
+  // Profit formula: revenue - supplier cost - confirmed complementar adjustments
+  const totalProfit = totalRevenue - totalSupplierCost - confirmedComplementarTotal;
   const pendingProfit = nonCancelled.filter(o => !o.repasseCompleted).reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
   const settledProfit = totalProfit - pendingProfit;
   const pending = orders.filter(o => o.status === 'pending' || o.status === 'awaiting_payment').length;
   const production = orders.filter(o => o.status === 'in_production').length;
 
-  const isSupplier = user?.activeRole === 'supplier';
   const recentOrders = orders.slice(0, 8);
 
   if (loading) {
@@ -59,6 +107,24 @@ const Dashboard = () => {
         <h2 className="text-2xl font-bold text-foreground">Olá, {user?.name}!</h2>
         <p className="text-muted-foreground">Resumo geral do sistema</p>
       </div>
+
+      {/* Admin warning banner for pending repasse complementar */}
+      {isAdmin && pendingComplementar.count > 0 && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-amber-800 text-sm">
+              Há <strong className={pendingComplementar.totalValue >= 0 ? 'text-green-700' : 'text-red-700'}>
+                R$ {Math.abs(pendingComplementar.totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </strong> em repasses complementares pendentes
+              ({pendingComplementar.totalValue >= 0 ? 'a pagar ao fornecedor' : 'a receber do fornecedor'}).
+            </span>
+            <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100" onClick={() => navigate('/batches')}>
+              Ver Repasses Complementares
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
         <Card className="min-w-[160px] w-full h-full min-h-[90px]">
