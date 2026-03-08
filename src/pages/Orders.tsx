@@ -56,7 +56,11 @@ interface BatchMeta {
   totalSaleAmount: number;
 }
 
-function mapOrderRow(o: any, items: any[]): Order {
+interface OrderWithBatch extends Order {
+  importBatchId: string | null;
+}
+
+function mapOrderRow(o: any, items: any[]): OrderWithBatch {
   return {
     id: o.id,
     orderNumber: o.order_number,
@@ -74,6 +78,7 @@ function mapOrderRow(o: any, items: any[]): Order {
     repasseDate: o.repasse_date,
     repasseConfirmedBy: o.repasse_confirmed_by,
     repasseAmount: Number(o.repasse_amount ?? 0),
+    importBatchId: o.import_batch_id ?? null,
     items: items
       .filter(i => i.order_id === o.id)
       .map(i => ({
