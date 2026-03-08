@@ -843,9 +843,11 @@ export default function Batches() {
                   {isAdmin && batchComplementar[batch.id] && batchComplementar[batch.id].count > 0 && (
                     <div className="mt-3 pt-3 border-t rounded-lg border border-orange-200 bg-orange-50 p-3 space-y-2">
                       <p className="text-sm font-semibold text-orange-700">Repasse Complementar Pendente</p>
-                      <p className={`text-lg font-bold ${batchComplementar[batch.id].totalValue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {batchComplementar[batch.id].totalValue >= 0 ? '+' : '-'}R$ {Math.abs(batchComplementar[batch.id].totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        <span className="text-xs font-normal text-muted-foreground ml-2">
+                      <p className="text-lg font-bold">
+                        <span className={batchComplementar[batch.id].totalValue <= 0 ? 'text-green-600' : 'text-red-600'}>
+                          {batchComplementar[batch.id].totalValue >= 0 ? '+' : '-'}R$ {Math.abs(batchComplementar[batch.id].totalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <span className={`text-xs font-normal ml-2 ${batchComplementar[batch.id].totalValue <= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           ({batchComplementar[batch.id].totalValue >= 0 ? 'a pagar ao fornecedor' : 'a receber do fornecedor'})
                         </span>
                       </p>
