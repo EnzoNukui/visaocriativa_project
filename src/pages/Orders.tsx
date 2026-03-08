@@ -409,11 +409,11 @@ const Orders = () => {
             <th className="p-3">Nº</th>
             <th className="p-3">Aluno</th>
             <th className="p-3">Turma</th>
-            <th className="p-3">Total</th>
+            {!isSupplier && <th className="p-3">Total</th>}
             <th className="p-3">Status</th>
             <th className="p-3">Prazo</th>
             <th className="p-3">Data</th>
-            <th className="p-3">Repasse</th>
+            {!isSupplier && <th className="p-3">Repasse</th>}
             <th className="p-3">Ações</th>
           </tr>
         </thead>
@@ -425,7 +425,7 @@ const Orders = () => {
                 <td className="p-3 font-medium">{order.orderNumber}</td>
                 <td className="p-3">{order.studentName}</td>
                 <td className="p-3">{order.grade}</td>
-                <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                {!isSupplier && <td className="p-3">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>}
                 <td className="p-3">
                   {isAdmin ? (
                     <Select value={order.status} onValueChange={(v) => handleStatusChange(order.id, v)}>
@@ -455,23 +455,25 @@ const Orders = () => {
                 <td className="p-3 text-muted-foreground">
                   {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                 </td>
-                <td className="p-3">
-                  {isAdmin ? (
-                    <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
-                      <Checkbox
-                        checked={order.repasseCompleted}
-                        onCheckedChange={() => handleRepasseToggle(order.id, order.repasseCompleted)}
-                      />
-                      <span className="text-[10px] text-muted-foreground">Repasse</span>
-                    </label>
-                  ) : (
-                    order.repasseCompleted ? (
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Repassado</span>
+                {!isSupplier && (
+                  <td className="p-3">
+                    {isAdmin ? (
+                      <label className="flex items-center gap-1 cursor-pointer" title={order.repasseCompleted ? 'Repasse confirmado' : 'Marcar repasse'}>
+                        <Checkbox
+                          checked={order.repasseCompleted}
+                          onCheckedChange={() => handleRepasseToggle(order.id, order.repasseCompleted)}
+                        />
+                        <span className="text-[10px] text-muted-foreground">Repasse</span>
+                      </label>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )
-                  )}
-                </td>
+                      order.repasseCompleted ? (
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Repassado</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )
+                    )}
+                  </td>
+                )}
                 <td className="p-3">
                   <div className="flex items-center gap-1">
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)}>
