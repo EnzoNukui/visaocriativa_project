@@ -116,19 +116,6 @@ export function useOrders() {
       const { data: supplierIdResult } = await supabase.rpc('get_default_supplier_id');
       const supplierId = supplierIdResult as string | null;
 
-      const { data: lastOrder } = await supabase
-        .from('orders')
-        .select('order_number')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const lastNumber = lastOrder?.order_number
-        ? parseInt(lastOrder.order_number.replace('VC-', ''))
-        : 0;
-      const nextNumber = String(lastNumber + 1).padStart(4, '0');
-      const orderNumber = `VC-${nextNumber}`;
-
       const insertPayload: any = {
         student_name: order.studentName,
         grade: order.grade,
@@ -140,7 +127,6 @@ export function useOrders() {
         repasse_amount: order.supplierTotalAmount,
         status: order.status,
         created_by: order.createdBy,
-        order_number: orderNumber,
         supplier_id: supplierId,
       };
       if (order.importBatchId) {
