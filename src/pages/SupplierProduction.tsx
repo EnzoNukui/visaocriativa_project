@@ -7,7 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, RefreshCw as RefreshCwIcon } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw as RefreshCwIcon, Calendar } from 'lucide-react';
+import { addBusinessDays } from '@/lib/business-days';
 import SupplierComplementarWarning from '@/components/SupplierComplementarWarning';
 
 // Size ordering
@@ -306,18 +307,22 @@ function BatchTab() {
                     onClick={() => toggleBatch(batch.id)}
                     className="w-full flex items-center justify-between text-left"
                   >
-                    <div className="flex items-center gap-3">
-                      {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-sm">{batch.batch_number}</p>
-                          <DeliveryBadge delivery={delivery} />
+                      <div className="flex items-center gap-3">
+                        {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-sm">{batch.batch_number}</p>
+                            <DeliveryBadge delivery={delivery} />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(batch.imported_at).toLocaleDateString('pt-BR')} · {batch.total_rows} pedidos
+                          </p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            📅 Entrega prevista: {addBusinessDays(new Date(batch.imported_at), 20).toLocaleDateString('pt-BR')}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(batch.imported_at).toLocaleDateString('pt-BR')} · {batch.total_rows} pedidos
-                        </p>
                       </div>
-                    </div>
                     <span className="text-xs text-primary font-medium">
                       {isOpen ? 'Fechar' : 'Ver Produção'}
                     </span>

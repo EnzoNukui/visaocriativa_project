@@ -39,6 +39,7 @@ import {
   FileSpreadsheet,
   Package,
 } from 'lucide-react';
+import { addBusinessDays } from '@/lib/business-days';
 import SupplierComplementarWarning from '@/components/SupplierComplementarWarning';
 
 // Size ordering
@@ -863,6 +864,10 @@ export default function Batches() {
                           <Calendar className="w-3 h-3" />
                           {new Date(batch.imported_at).toLocaleDateString('pt-BR')}
                         </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                        <Calendar className="w-3 h-3" />
+                        📅 Entrega prevista: {addBusinessDays(new Date(batch.imported_at), 20).toLocaleDateString('pt-BR')}
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                         <FileSpreadsheet className="w-3 h-3" />
