@@ -40,10 +40,19 @@ const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'o
 
 const Users = () => {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const isMaster = currentUser?.isMaster;
+
+  useEffect(() => {
+    if (currentUser && !currentUser.isMaster) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, navigate]);
 
   const isMaster = currentUser?.isMaster;
 
