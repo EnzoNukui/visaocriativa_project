@@ -40,10 +40,11 @@ const statusColors: Record<string, string> = {
 
 const DELIVERY_DAYS = 20;
 
+import { addBusinessDays } from '@/lib/business-days';
+
 function getDeadlineStatus(createdAt: string) {
   const created = new Date(createdAt);
-  const deadline = new Date(created);
-  deadline.setDate(deadline.getDate() + DELIVERY_DAYS);
+  const deadline = addBusinessDays(created, DELIVERY_DAYS);
   const now = new Date();
   const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -665,7 +666,7 @@ const Orders = () => {
                 <div><span className="text-muted-foreground">Data do Pedido:</span><br />{new Date(selectedOrder.createdAt).toLocaleDateString('pt-BR')}</div>
                 <div>
                   <span className="text-muted-foreground">Prazo de Entrega:</span><br />
-                  {(() => { const d = new Date(selectedOrder.createdAt); d.setDate(d.getDate() + DELIVERY_DAYS); return d.toLocaleDateString('pt-BR'); })()}
+                  {addBusinessDays(new Date(selectedOrder.createdAt), DELIVERY_DAYS).toLocaleDateString('pt-BR')}
                 </div>
               </div>
               <div>
