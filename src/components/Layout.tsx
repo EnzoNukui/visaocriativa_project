@@ -65,8 +65,12 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         )}
       >
         <div className="p-5 flex items-center gap-3 border-b border-sidebar-border">
-          <div className="w-9 h-9 rounded-xl bg-sidebar-primary flex items-center justify-center">
-            <GraduationCap className="w-5 h-5 text-sidebar-primary-foreground" />
+          <div className="w-9 h-9 flex items-center justify-center">
+            <img 
+              src="/simbolo_cologio_visao_criativa.png" 
+              alt="Colégio Visão Criativa"
+              className="h-10 w-auto object-contain"
+            />
           </div>
           <div>
             <h2 className="font-bold text-sm leading-tight">Visão Criativa</h2>
