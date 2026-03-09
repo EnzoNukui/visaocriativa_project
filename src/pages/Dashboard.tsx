@@ -153,12 +153,12 @@ const Dashboard = () => {
   }, [user, orders, isSupplier]);
 
   const nonCancelled = orders.filter(o => o.status !== 'cancelled');
-  const totalRevenue = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
-  const totalSupplierCost = nonCancelled.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
-  // Profit formula: revenue - supplier cost - confirmed complementar adjustments
+  const paidOrders = orders.filter(o => o.status === 'paid');
+  const totalRevenue = paidOrders.reduce((s, o) => s + o.totalAmount, 0);
+  const totalSupplierCost = paidOrders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
   const totalProfit = totalRevenue - totalSupplierCost - confirmedComplementarTotal;
-  const pendingProfit = nonCancelled.filter(o => !o.repasseCompleted).reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
-  const settledProfit = totalProfit - pendingProfit;
+  const pendingRepasse = paidOrders.filter(o => !o.repasseCompleted).reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
+  const settledProfit = totalProfit - paidOrders.filter(o => !o.repasseCompleted).reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
   const pending = orders.filter(o => o.status === 'pending' || o.status === 'awaiting_payment').length;
   const production = orders.filter(o => o.status === 'in_production').length;
 

@@ -353,13 +353,12 @@ const Orders = () => {
   const handleBatchRepasse = async (batchId: string, batchNumber: string) => {
     if (!user) return;
     try {
-      // Mark orders as paid
       await supabase.from('orders').update({
         repasse_completed: true,
         repasse_date: new Date().toISOString(),
         repasse_confirmed_by: user.id,
         status: 'paid',
-      }).eq('import_batch_id', batchId).neq('status', 'cancelled');
+      }).eq('import_batch_id', batchId).neq('status', 'cancelled').neq('status', 'exchange_requested');
 
       // Resolve pending adjustments for this batch's orders
       const { data: batchOrderIds } = await supabase
