@@ -42,7 +42,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/', { replace: true });
+    navigate('/');
   };
 
   const handleSwitchRole = () => {

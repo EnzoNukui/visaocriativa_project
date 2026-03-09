@@ -20,11 +20,10 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute = ({ children, adminOnly = false, supplierOnly = false, masterOnly = false }: { children: React.ReactNode; adminOnly?: boolean; supplierOnly?: boolean; masterOnly?: boolean }) => {
+const ProtectedRoute = ({ children, adminOnly = false, supplierOnly = false }: { children: React.ReactNode; adminOnly?: boolean; supplierOnly?: boolean }) => {
   const { user, isAuthenticated, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!isAuthenticated) return <Navigate to="/" replace />;
-  if (masterOnly && !user?.isMaster) return <Navigate to="/dashboard" replace />;
   if (adminOnly && user?.activeRole !== 'admin') return <Navigate to="/dashboard" replace />;
   if (supplierOnly && user?.activeRole !== 'supplier') return <Navigate to="/orders" replace />;
   return <Layout>{children}</Layout>;
@@ -52,7 +51,7 @@ const App = () => (
             <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
             <Route path="/orders/new" element={<ProtectedRoute adminOnly><NewOrder /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute adminOnly><Products /></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute masterOnly><Users /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
             <Route path="/backups" element={<ProtectedRoute adminOnly><Backups /></ProtectedRoute>} />
             <Route path="/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
             <Route path="/supplier-production" element={<ProtectedRoute supplierOnly><SupplierProduction /></ProtectedRoute>} />

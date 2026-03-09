@@ -417,9 +417,10 @@ function BatchTab() {
                               <Table>
                                 <TableHeader>
                                   <TableRow>
-                                     <TableHead>Pedido</TableHead>
+                                    <TableHead>Pedido</TableHead>
                                     <TableHead>Aluno</TableHead>
                                     <TableHead>Turma</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
                                     <TableHead className="w-[60px]">Ações</TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -429,6 +430,7 @@ function BatchTab() {
                                       <TableCell className="font-medium text-xs">{order.orderNumber}</TableCell>
                                       <TableCell className="text-xs">{order.studentName}</TableCell>
                                       <TableCell className="text-xs">{order.grade}</TableCell>
+                                      <TableCell className="text-right text-xs">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                                       <TableCell>
                                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)} title="Visualizar pedido">
                                           <Eye className="w-4 h-4" />

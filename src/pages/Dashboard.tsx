@@ -90,7 +90,10 @@ const Dashboard = () => {
     const fetchPendingExchanges = async () => {
       if (!isSupplier) return;
       
-      const { data: exchangeOrders } = await supabase
+      console.log('Fetching pending exchanges for supplier:', user.id);
+      
+      // Temporarily remove supplier_id filter since it might be null on existing orders
+      const { data: exchangeOrders, error: ordersError } = await supabase
         .from('orders')
         .select(`
           id,
@@ -102,25 +105,39 @@ const Dashboard = () => {
         `)
         .eq('status', 'exchange_requested');
 
+      console.log('Exchange orders found:', exchangeOrders);
+      console.log('Orders error:', ordersError);
+
       if (exchangeOrders && exchangeOrders.length > 0) {
+        // Get adjustments for these orders
         const orderIds = exchangeOrders.map(o => o.id);
-        const { data: adjustments } = await supabase
+        const { data: adjustments, error: adjustmentsError } = await supabase
           .from('order_adjustments')
           .select('order_id, product_name, old_size, new_size, quantity')
           .in('order_id', orderIds)
           .eq('status', 'pending');
 
+        console.log('Adjustments found:', adjustments);
+        console.log('Adjustments error:', adjustmentsError);
+
+        // Combine order and adjustment data
         const exchangesWithDetails = exchangeOrders.map(order => {
           const adjustment = adjustments?.find(adj => adj.order_id === order.id);
-          return { ...order, adjustment };
-        }).filter(exchange => exchange.adjustment);
+          return {
+            ...order,
+            adjustment
+          };
+        }).filter(exchange => exchange.adjustment); // Only include orders with adjustments
 
+        console.log('Final exchanges with details:', exchangesWithDetails);
         setPendingExchanges(exchangesWithDetails);
       } else {
+        console.log('No exchange orders found, setting empty array');
         setPendingExchanges([]);
       }
     };
 
+    console.log('Running fetchPendingExchanges for isSupplier:', isSupplier);
     fetchPendingExchanges();
 
     // Fetch batches for calendar popover
@@ -157,12 +174,12 @@ const Dashboard = () => {
     fetchBatches();
   }, [user, orders, isSupplier]);
 
-  const paidOrders = orders.filter(o => o.status === 'paid');
-  const totalRevenue = paidOrders.reduce((s, o) => s + o.totalAmount, 0);
-  const totalSupplierCost = paidOrders.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
+  const nonCancelled = orders.filter(o => o.status !== 'cancelled');
+  const totalRevenue = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
+  const totalSupplierCost = nonCancelled.reduce((s, o) => s + (o.supplierTotalAmount || 0), 0);
   // Profit formula: revenue - supplier cost - confirmed complementar adjustments
   const totalProfit = totalRevenue - totalSupplierCost - confirmedComplementarTotal;
-  const pendingProfit = paidOrders.filter(o => !o.repasseCompleted).reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
+  const pendingProfit = nonCancelled.filter(o => !o.repasseCompleted).reduce((s, o) => s + o.totalAmount - (o.supplierTotalAmount || 0), 0);
   const settledProfit = totalProfit - pendingProfit;
   const pending = orders.filter(o => o.status === 'pending' || o.status === 'awaiting_payment').length;
   const production = orders.filter(o => o.status === 'in_production').length;
@@ -301,7 +318,14 @@ const Dashboard = () => {
       )}
 
       {/* Supplier pending exchanges section */}
-      {isSupplier && pendingExchanges.length > 0 && (
+      {(() => {
+        console.log('Checking pending exchanges render condition:', {
+          isSupplier,
+          pendingExchangesLength: pendingExchanges.length,
+          pendingExchanges
+        });
+        return isSupplier && pendingExchanges.length > 0;
+      })() && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <h3 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5" />
@@ -363,19 +387,17 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         )}
-        {!isSupplier && (
-          <Card className="min-w-[160px] w-full h-full min-h-[90px]">
-            <CardContent className="p-4 flex items-center gap-3 h-full">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="w-5 h-5 text-blue-700" />
-              </div>
-              <div className="flex flex-col justify-center min-w-0">
-                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Custo Fornecedor</p>
-                <p className="text-lg font-bold leading-tight whitespace-nowrap">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Card className="min-w-[160px] w-full h-full min-h-[90px]">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-5 h-5 text-blue-700" />
+            </div>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Custo Fornecedor</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap">R$ {totalSupplierCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
         {!isSupplier && (
           <Card className="min-w-[160px] w-full h-full min-h-[90px]">
             <CardContent className="p-4 flex items-center gap-3 h-full">
@@ -389,32 +411,28 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         )}
-        {!isSupplier && (
-          <Card className="border-yellow-300 bg-yellow-50/50 min-w-[160px] w-full h-full min-h-[90px]">
-            <CardContent className="p-4 flex items-center gap-3 h-full">
-              <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
-                <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
-              </div>
-              <div className="flex flex-col justify-center min-w-0">
-                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Pendente Repasse</p>
-                <p className="text-lg font-bold leading-tight whitespace-nowrap text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        {!isSupplier && (
-          <Card className="border-green-300 bg-green-50/50 min-w-[160px] w-full h-full min-h-[90px]">
-            <CardContent className="p-4 flex items-center gap-3 h-full">
-              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="w-5 h-5 text-green-700" />
-              </div>
-              <div className="flex flex-col justify-center min-w-0">
-                <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Lucro Repassado</p>
-                <p className="text-lg font-bold leading-tight whitespace-nowrap text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Card className="border-yellow-300 bg-yellow-50/50 min-w-[160px] w-full h-full min-h-[90px]">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
+              <ArrowRightLeft className="w-5 h-5 text-yellow-700" />
+            </div>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Pendente Repasse</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-green-300 bg-green-50/50 min-w-[160px] w-full h-full min-h-[90px]">
+          <CardContent className="p-4 flex items-center gap-3 h-full">
+            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-5 h-5 text-green-700" />
+            </div>
+            <div className="flex flex-col justify-center min-w-0">
+              <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Lucro Repassado</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap text-green-600">R$ {settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
             <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
