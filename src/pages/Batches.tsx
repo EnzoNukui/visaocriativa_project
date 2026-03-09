@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { addBusinessDays } from '@/lib/business-days';
 import SupplierComplementarWarning from '@/components/SupplierComplementarWarning';
+import { BatchCalendar } from '@/components/BatchCalendar';
 
 // Size ordering
 const SIZE_ORDER = ['2', '4', '6', '8', '10', '12', '14', '16', 'PP', 'P', 'M', 'G', 'GG', 'EG', 'XG'];
@@ -606,6 +607,7 @@ export default function Batches() {
   const [loading, setLoading] = useState(true);
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState('lotes');
 
   // Dialogs
   const [repasseBatch, setRepasseBatch] = useState<BatchRecord | null>(null);
@@ -640,6 +642,17 @@ export default function Batches() {
 
   const toggleBatch = (id: string) => {
     setExpandedBatch(prev => prev === id ? null : id);
+  };
+
+  const handleCalendarBatchClick = (batchId: string) => {
+    setActiveTab('lotes');
+    setTimeout(() => {
+      setExpandedBatch(batchId);
+      const element = document.getElementById(`batch-${batchId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   // --- Confirmar Repasse ---
@@ -846,15 +859,22 @@ export default function Batches() {
         </Button>
       </div>
 
-      {batches.length === 0 ? (
-        <p className="text-muted-foreground text-center py-12">Nenhum lote de importação encontrado.</p>
-      ) : (
-        <div className="space-y-4">
-          {batches.map(batch => {
-            const isOpen = expandedBatch === batch.id;
-            return (
-              <Card key={batch.id}>
-                <CardContent className="p-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="lotes">Lotes</TabsTrigger>
+          <TabsTrigger value="calendario">Calendário</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="lotes" className="mt-6">
+          {batches.length === 0 ? (
+            <p className="text-muted-foreground text-center py-12">Nenhum lote de importação encontrado.</p>
+          ) : (
+            <div className="space-y-4">
+              {batches.map(batch => {
+                const isOpen = expandedBatch === batch.id;
+                return (
+                  <Card key={batch.id} id={`batch-${batch.id}`}>
+                    <CardContent className="p-4">
                   {/* Header */}
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="flex-1">
@@ -947,9 +967,15 @@ export default function Batches() {
                 </CardContent>
               </Card>
             );
-          })}
-        </div>
-      )}
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="calendario" className="mt-6">
+          <BatchCalendar batches={batches} onBatchClick={handleCalendarBatchClick} />
+        </TabsContent>
+      </Tabs>
 
       {/* Confirmar Repasse Dialog */}
       <AlertDialog open={!!repasseBatch} onOpenChange={(v) => { if (!v) setRepasseBatch(null); }}>
