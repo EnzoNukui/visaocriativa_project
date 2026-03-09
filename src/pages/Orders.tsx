@@ -129,8 +129,11 @@ const Orders = () => {
 
   const [allOrdersForSearch, setAllOrdersForSearch] = useState<OrderWithBatch[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [gradeFilter, setGradeFilter] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<string>('default');
+  const [allGrades, setAllGrades] = useState<string[]>([]);
 
-  const isSearchActive = search.length > 0 || statusFilter !== 'all';
+  const isSearchActive = search.length > 0 || statusFilter !== 'all' || gradeFilter !== 'all' || sortOrder !== 'default';
 
   const [financialSummary, setFinancialSummary] = useState({ totalSchool: 0, totalSupplier: 0, totalProfit: 0, pendingProfit: 0, settledProfit: 0 });
 
@@ -183,6 +186,20 @@ const Orders = () => {
   }, [isSupplier]);
 
   useEffect(() => { fetchBatches(); }, [fetchBatches]);
+
+  useEffect(() => {
+    const fetchGrades = async () => {
+      const { data } = await supabase.from('orders').select('grade');
+      if (data) {
+        const grades = [...new Set(data.map((o: { grade: string }) => o.grade))]
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        setAllGrades(grades);
+      }
+    };
+
+    fetchGrades();
+  }, []);
 
   const loadBatchOrders = useCallback(async (batchKey: string) => {
     if (batchOrders[batchKey]) return;
@@ -457,11 +474,18 @@ const Orders = () => {
   };
 
   const filterOrders = <T extends Order>(orders: T[]): T[] => {
-    return orders.filter(o => {
+    let result = orders.filter(o => {
       const matchSearch = search.length === 0 || o.studentName.toLowerCase().includes(search.toLowerCase()) || o.orderNumber.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'all' || o.status === statusFilter;
-      return matchSearch && matchStatus;
+      const matchGrade = gradeFilter === 'all' || o.grade === gradeFilter;
+      return matchSearch && matchStatus && matchGrade;
     });
+    if (sortOrder === 'asc') {
+      result = [...result].sort((a, b) => a.studentName.localeCompare(b.studentName, 'pt-BR'));
+    } else if (sortOrder === 'desc') {
+      result = [...result].sort((a, b) => b.studentName.localeCompare(a.studentName, 'pt-BR'));
+    }
+    return result;
   };
 
   const totalBatchCount = batches.length + (manualCount > 0 ? 1 : 0);
@@ -616,8 +640,8 @@ const Orders = () => {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Buscar por aluno ou nº do pedido..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
@@ -632,6 +656,23 @@ const Orders = () => {
             <SelectItem value="delivered">Entregue</SelectItem>
             <SelectItem value="paid">Pago</SelectItem>
             <SelectItem value="cancelled">Cancelado</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={gradeFilter} onValueChange={setGradeFilter}>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as Turmas</SelectItem>
+            {allGrades.map(grade => (
+              <SelectItem key={grade} value={grade}>{grade}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortOrder} onValueChange={setSortOrder}>
+          <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Padrão</SelectItem>
+            <SelectItem value="asc">A → Z</SelectItem>
+            <SelectItem value="desc">Z → A</SelectItem>
           </SelectContent>
         </Select>
       </div>
