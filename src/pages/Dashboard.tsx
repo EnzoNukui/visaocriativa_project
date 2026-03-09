@@ -296,14 +296,7 @@ const Dashboard = () => {
       )}
 
       {/* Supplier pending exchanges section */}
-      {(() => {
-        console.log('Checking pending exchanges render condition:', {
-          isSupplier,
-          pendingExchangesLength: pendingExchanges.length,
-          pendingExchanges
-        });
-        return isSupplier && pendingExchanges.length > 0;
-      })() && (
+      {isSupplier && pendingExchanges.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <h3 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5" />
