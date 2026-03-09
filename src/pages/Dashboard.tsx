@@ -90,10 +90,7 @@ const Dashboard = () => {
     const fetchPendingExchanges = async () => {
       if (!isSupplier) return;
       
-      console.log('Fetching pending exchanges for supplier:', user.id);
-      
-      // Temporarily remove supplier_id filter since it might be null on existing orders
-      const { data: exchangeOrders, error: ordersError } = await supabase
+      const { data: exchangeOrders } = await supabase
         .from('orders')
         .select(`
           id,
@@ -103,41 +100,28 @@ const Dashboard = () => {
           supplier_id,
           import_batches(batch_number)
         `)
-        .eq('status', 'exchange_requested');
-
-      console.log('Exchange orders found:', exchangeOrders);
-      console.log('Orders error:', ordersError);
+        .eq('status', 'exchange_requested')
+        .eq('supplier_id', user.id);
 
       if (exchangeOrders && exchangeOrders.length > 0) {
-        // Get adjustments for these orders
         const orderIds = exchangeOrders.map(o => o.id);
-        const { data: adjustments, error: adjustmentsError } = await supabase
+        const { data: adjustments } = await supabase
           .from('order_adjustments')
           .select('order_id, product_name, old_size, new_size, quantity')
           .in('order_id', orderIds)
           .eq('status', 'pending');
 
-        console.log('Adjustments found:', adjustments);
-        console.log('Adjustments error:', adjustmentsError);
-
-        // Combine order and adjustment data
         const exchangesWithDetails = exchangeOrders.map(order => {
           const adjustment = adjustments?.find(adj => adj.order_id === order.id);
-          return {
-            ...order,
-            adjustment
-          };
-        }).filter(exchange => exchange.adjustment); // Only include orders with adjustments
+          return { ...order, adjustment };
+        }).filter(exchange => exchange.adjustment);
 
-        console.log('Final exchanges with details:', exchangesWithDetails);
         setPendingExchanges(exchangesWithDetails);
       } else {
-        console.log('No exchange orders found, setting empty array');
         setPendingExchanges([]);
       }
     };
 
-    console.log('Running fetchPendingExchanges for isSupplier:', isSupplier);
     fetchPendingExchanges();
 
     // Fetch batches for calendar popover
@@ -146,10 +130,9 @@ const Dashboard = () => {
         .from('import_batches')
         .select('id, batch_number, imported_at, total_orders')
         .eq('status', 'active')
-        .order('imported_at', { ascending: true }); // Soonest first
+        .order('imported_at', { ascending: true });
 
       if (isSupplier) {
-        // For suppliers, only show batches that contain their orders
         const { data: supplierOrders } = await supabase
           .from('orders')
           .select('import_batch_id')
@@ -159,11 +142,6 @@ const Dashboard = () => {
         if (supplierOrders && supplierOrders.length > 0) {
           const batchIds = [...new Set(supplierOrders.map(o => o.import_batch_id))];
           batchQuery = batchQuery.in('id', batchIds);
-        } else {
-          // If no orders found with supplier_id (likely because supplier_id is null on orders),
-          // show all active batches so suppliers can see delivery dates
-          // TODO: Remove this when supplier_id is properly set on orders
-          console.log('No orders found for supplier, showing all batches temporarily');
         }
       }
 
@@ -318,14 +296,7 @@ const Dashboard = () => {
       )}
 
       {/* Supplier pending exchanges section */}
-      {(() => {
-        console.log('Checking pending exchanges render condition:', {
-          isSupplier,
-          pendingExchangesLength: pendingExchanges.length,
-          pendingExchanges
-        });
-        return isSupplier && pendingExchanges.length > 0;
-      })() && (
+      {isSupplier && pendingExchanges.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <h3 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5" />
