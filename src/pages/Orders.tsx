@@ -187,6 +187,20 @@ const Orders = () => {
 
   useEffect(() => { fetchBatches(); }, [fetchBatches]);
 
+  useEffect(() => {
+    const fetchGrades = async () => {
+      const { data } = await supabase.from('orders').select('grade');
+      if (data) {
+        const grades = [...new Set(data.map((o: { grade: string }) => o.grade))]
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        setAllGrades(grades);
+      }
+    };
+
+    fetchGrades();
+  }, []);
+
   const loadBatchOrders = useCallback(async (batchKey: string) => {
     if (batchOrders[batchKey]) return;
     setLoadingOrders(prev => ({ ...prev, [batchKey]: true }));
