@@ -524,6 +524,7 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
             created_by: user.id,
             order_number: orderNumber,
             import_batch_id: batchId,
+            supplier_id: supplierId,
           })
           .select();
 
