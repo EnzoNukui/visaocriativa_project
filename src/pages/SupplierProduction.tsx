@@ -7,9 +7,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, RefreshCw as RefreshCwIcon, Calendar } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw as RefreshCwIcon, Calendar, Eye } from 'lucide-react';
 import { addBusinessDays } from '@/lib/business-days';
 import SupplierComplementarWarning from '@/components/SupplierComplementarWarning';
+import OrderDetailModal from '@/components/OrderDetailModal';
+import type { Order } from '@/hooks/useOrders';
 
 // Size ordering
 const SIZE_ORDER = ['2', '4', '6', '8', '10', '12', '14', '16', 'PP', 'P', 'M', 'G', 'GG', 'EG', 'XG'];
@@ -138,9 +140,11 @@ function BatchTab() {
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
   const [batchItems, setBatchItems] = useState<Record<string, AggItem[]>>({});
   const [batchOrderStatuses, setBatchOrderStatuses] = useState<Record<string, OrderStatus[]>>({});
+  const [batchFullOrders, setBatchFullOrders] = useState<Record<string, Order[]>>({});
   const [batchLoading, setBatchLoading] = useState<string | null>(null);
   const [deliveryCounts, setDeliveryCounts] = useState<Record<string, DeliveryCount>>({});
   const [batchExchangeRequests, setBatchExchangeRequests] = useState<Record<string, any[]>>({});
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const fetchBatches = useCallback(async () => {
     setLoading(true);
@@ -195,16 +199,17 @@ function BatchTab() {
 
     setBatchLoading(batchId);
     
-    // Fetch orders
+    // Fetch orders with full details
     const { data: orders } = await supabase
       .from('orders')
-      .select('id, status')
+      .select('id, order_number, student_name, grade, responsible_name, phone, status, created_at, created_by, total_amount, supplier_total_amount, school_profit, repasse_completed, repasse_date, repasse_confirmed_by, repasse_amount')
       .eq('import_batch_id', batchId)
       .neq('status', 'cancelled');
 
     if (!orders || orders.length === 0) {
       setBatchItems(prev => ({ ...prev, [batchId]: [] }));
       setBatchOrderStatuses(prev => ({ ...prev, [batchId]: [] }));
+      setBatchFullOrders(prev => ({ ...prev, [batchId]: [] }));
       setBatchExchangeRequests(prev => ({ ...prev, [batchId]: [] }));
       setBatchLoading(null);
       return;
@@ -238,15 +243,52 @@ function BatchTab() {
     
     setBatchExchangeRequests(prev => ({ ...prev, [batchId]: exchanges }));
 
-    // Fetch production items
+    // Fetch production items (with full details for order modal)
     const orderIds = orders.map(o => o.id);
     const { data: items } = await supabase
       .from('order_items')
-      .select('product_id, product_name, size, quantity')
+      .select('id, order_id, product_id, product_name, size, quantity, unit_price, supplier_price, total, supplier_total')
       .in('order_id', orderIds);
 
+    const allItems = items || [];
+
+    // Build full Order objects for modal
+    const fullOrders: Order[] = orders.map(o => ({
+      id: o.id,
+      orderNumber: o.order_number,
+      studentName: o.student_name,
+      grade: o.grade,
+      responsibleName: o.responsible_name,
+      phone: o.phone,
+      totalAmount: Number(o.total_amount),
+      supplierTotalAmount: Number(o.supplier_total_amount),
+      schoolProfit: Number(o.school_profit ?? (Number(o.total_amount) - Number(o.supplier_total_amount))),
+      status: o.status,
+      createdAt: o.created_at,
+      createdBy: o.created_by,
+      repasseCompleted: o.repasse_completed,
+      repasseDate: o.repasse_date,
+      repasseConfirmedBy: o.repasse_confirmed_by,
+      repasseAmount: Number(o.repasse_amount ?? 0),
+      items: allItems
+        .filter(i => i.order_id === o.id)
+        .map(i => ({
+          id: i.id,
+          productId: i.product_id,
+          productName: i.product_name,
+          size: i.size,
+          quantity: i.quantity,
+          unitPrice: Number(i.unit_price),
+          supplierPrice: Number(i.supplier_price),
+          total: Number(i.total),
+          supplierTotal: Number(i.supplier_total),
+        })),
+    }));
+    setBatchFullOrders(prev => ({ ...prev, [batchId]: fullOrders }));
+
+    // Aggregate for production table
     const aggMap = new Map<string, AggItem>();
-    (items || []).forEach(i => {
+    allItems.forEach(i => {
       const key = `${i.product_id}||${i.size}`;
       const existing = aggMap.get(key);
       if (existing) {
@@ -266,9 +308,9 @@ function BatchTab() {
   }, [expandedBatch, batchItems, batches]);
 
   const handleRefresh = useCallback(async () => {
-    // Clear cached data so it reloads
     setBatchItems({});
     setBatchOrderStatuses({});
+    setBatchFullOrders({});
     setBatchExchangeRequests({});
     setExpandedBatch(null);
     await fetchBatches();
@@ -294,6 +336,7 @@ function BatchTab() {
         const isOpen = expandedBatch === batch.id;
         const items = batchItems[batch.id];
         const statuses = batchOrderStatuses[batch.id];
+        const fullOrders = batchFullOrders[batch.id] || [];
         const isLoadingBatch = batchLoading === batch.id;
         const delivery = deliveryCounts[batch.id];
         const exchanges = batchExchangeRequests[batch.id] || [];
@@ -363,7 +406,44 @@ function BatchTab() {
                     ) : items && items.length === 0 ? (
                       <p className="text-muted-foreground text-sm text-center py-4">Nenhum item encontrado para este lote.</p>
                     ) : items ? (
-                      <ProductionTable items={items} orderStatuses={statuses} />
+                      <>
+                        <ProductionTable items={items} orderStatuses={statuses} />
+                        
+                        {/* Individual Orders List */}
+                        {fullOrders.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="font-semibold text-sm text-foreground">Pedidos do Lote</h4>
+                            <div className="rounded-md border overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Pedido</TableHead>
+                                    <TableHead>Aluno</TableHead>
+                                    <TableHead>Turma</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                    <TableHead className="w-[60px]">Ações</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {fullOrders.map(order => (
+                                    <TableRow key={order.id}>
+                                      <TableCell className="font-medium text-xs">{order.orderNumber}</TableCell>
+                                      <TableCell className="text-xs">{order.studentName}</TableCell>
+                                      <TableCell className="text-xs">{order.grade}</TableCell>
+                                      <TableCell className="text-right text-xs">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                                      <TableCell>
+                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)} title="Visualizar pedido">
+                                          <Eye className="w-4 h-4" />
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : null}
                   </div>
                 </CollapsibleContent>
@@ -372,6 +452,8 @@ function BatchTab() {
           </Collapsible>
         );
       })}
+
+      <OrderDetailModal order={selectedOrder} open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} />
     </div>
   );
 }
