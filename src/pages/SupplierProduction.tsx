@@ -336,6 +336,7 @@ function BatchTab() {
         const isOpen = expandedBatch === batch.id;
         const items = batchItems[batch.id];
         const statuses = batchOrderStatuses[batch.id];
+        const fullOrders = batchFullOrders[batch.id] || [];
         const isLoadingBatch = batchLoading === batch.id;
         const delivery = deliveryCounts[batch.id];
         const exchanges = batchExchangeRequests[batch.id] || [];
@@ -405,7 +406,44 @@ function BatchTab() {
                     ) : items && items.length === 0 ? (
                       <p className="text-muted-foreground text-sm text-center py-4">Nenhum item encontrado para este lote.</p>
                     ) : items ? (
-                      <ProductionTable items={items} orderStatuses={statuses} />
+                      <>
+                        <ProductionTable items={items} orderStatuses={statuses} />
+                        
+                        {/* Individual Orders List */}
+                        {fullOrders.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="font-semibold text-sm text-foreground">Pedidos do Lote</h4>
+                            <div className="rounded-md border overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Pedido</TableHead>
+                                    <TableHead>Aluno</TableHead>
+                                    <TableHead>Turma</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                    <TableHead className="w-[60px]">Ações</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {fullOrders.map(order => (
+                                    <TableRow key={order.id}>
+                                      <TableCell className="font-medium text-xs">{order.orderNumber}</TableCell>
+                                      <TableCell className="text-xs">{order.studentName}</TableCell>
+                                      <TableCell className="text-xs">{order.grade}</TableCell>
+                                      <TableCell className="text-right text-xs">R$ {order.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                                      <TableCell>
+                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedOrder(order)} title="Visualizar pedido">
+                                          <Eye className="w-4 h-4" />
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : null}
                   </div>
                 </CollapsibleContent>
@@ -414,6 +452,8 @@ function BatchTab() {
           </Collapsible>
         );
       })}
+
+      <OrderDetailModal order={selectedOrder} open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} />
     </div>
   );
 }
