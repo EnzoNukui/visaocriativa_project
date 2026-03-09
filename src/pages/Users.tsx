@@ -54,7 +54,6 @@ const Users = () => {
     }
   }, [currentUser, navigate]);
 
-  const isMaster = currentUser?.isMaster;
 
   const fetchUsers = async () => {
     setLoading(true);
