@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, AlertTriangle, Calendar, X } from 'lucide-react';
+import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, AlertTriangle, Calendar, X, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +46,8 @@ const Dashboard = () => {
   const [pendingComplementar, setPendingComplementar] = useState<{ count: number; totalValue: number }>({ count: 0, totalValue: 0 });
   // Confirmed complementar total for profit impact
   const [confirmedComplementarTotal, setConfirmedComplementarTotal] = useState(0);
+  // Pending exchanges for supplier
+  const [pendingExchanges, setPendingExchanges] = useState<any[]>([]);
 
   // Calendar popover state
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -83,6 +85,48 @@ const Dashboard = () => {
       }
     };
     fetchComplementar();
+
+    // Fetch pending exchanges for supplier
+    const fetchPendingExchanges = async () => {
+      if (!isSupplier) return;
+      
+      const { data: exchangeOrders } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          student_name,
+          import_batch_id,
+          import_batches!inner(batch_number)
+        `)
+        .eq('status', 'exchange_requested')
+        .eq('supplier_id', user.id);
+
+      if (exchangeOrders && exchangeOrders.length > 0) {
+        // Get adjustments for these orders
+        const orderIds = exchangeOrders.map(o => o.id);
+        const { data: adjustments } = await supabase
+          .from('order_adjustments')
+          .select('order_id, product_name, old_size, new_size, quantity')
+          .in('order_id', orderIds)
+          .eq('status', 'pending');
+
+        // Combine order and adjustment data
+        const exchangesWithDetails = exchangeOrders.map(order => {
+          const adjustment = adjustments?.find(adj => adj.order_id === order.id);
+          return {
+            ...order,
+            adjustment
+          };
+        }).filter(exchange => exchange.adjustment); // Only include orders with adjustments
+
+        setPendingExchanges(exchangesWithDetails);
+      } else {
+        setPendingExchanges([]);
+      }
+    };
+
+    fetchPendingExchanges();
 
     // Fetch batches for calendar popover
     const fetchBatches = async () => {
@@ -259,6 +303,44 @@ const Dashboard = () => {
             </span>
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Supplier pending exchanges section */}
+      {isSupplier && pendingExchanges.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <h3 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            ⚠️ Trocas Pendentes
+          </h3>
+          <div className="space-y-3">
+            {pendingExchanges.map((exchange) => (
+              <div 
+                key={exchange.id}
+                className="bg-white border border-amber-200 rounded-lg p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <span><strong>Aluno:</strong> {exchange.student_name}</span>
+                      <span><strong>Lote:</strong> {exchange.import_batches?.batch_number || 'N/A'}</span>
+                    </div>
+                    {exchange.adjustment && (
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <span><strong>Produto:</strong> {exchange.adjustment.product_name}</span>
+                        <span><strong>Alteração:</strong> Tamanho {exchange.adjustment.old_size} → {exchange.adjustment.new_size}</span>
+                        <span><strong>Quantidade:</strong> {exchange.adjustment.quantity}</span>
+                      </div>
+                    )}
+                  </div>
+                  <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-300 shrink-0">
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Troca Solicitada
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
