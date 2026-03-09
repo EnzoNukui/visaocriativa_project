@@ -139,6 +139,7 @@ function BatchTab() {
   const [batchOrderStatuses, setBatchOrderStatuses] = useState<Record<string, OrderStatus[]>>({});
   const [batchLoading, setBatchLoading] = useState<string | null>(null);
   const [deliveryCounts, setDeliveryCounts] = useState<Record<string, DeliveryCount>>({});
+  const [batchExchangeRequests, setBatchExchangeRequests] = useState<Record<string, any[]>>({});
 
   const fetchBatches = useCallback(async () => {
     setLoading(true);
@@ -192,6 +193,8 @@ function BatchTab() {
     if (batchItems[batchId]) return;
 
     setBatchLoading(batchId);
+    
+    // Fetch orders
     const { data: orders } = await supabase
       .from('orders')
       .select('id, status')
@@ -201,12 +204,40 @@ function BatchTab() {
     if (!orders || orders.length === 0) {
       setBatchItems(prev => ({ ...prev, [batchId]: [] }));
       setBatchOrderStatuses(prev => ({ ...prev, [batchId]: [] }));
+      setBatchExchangeRequests(prev => ({ ...prev, [batchId]: [] }));
       setBatchLoading(null);
       return;
     }
 
     setBatchOrderStatuses(prev => ({ ...prev, [batchId]: orders.map(o => ({ id: o.id, status: o.status })) }));
 
+    // Fetch exchange requests for this batch
+    const { data: exchangeOrders } = await supabase
+      .from('orders')
+      .select(`
+        id, student_name,
+        order_adjustments!inner(id, product_name, old_size, new_size, quantity, created_at)
+      `)
+      .eq('import_batch_id', batchId)
+      .eq('status', 'exchange_requested');
+
+    const batch = batches.find(b => b.id === batchId);
+    const exchanges = (exchangeOrders || []).flatMap(order => 
+      order.order_adjustments.map(adj => ({
+        orderId: order.id,
+        studentName: order.student_name,
+        batchNumber: batch?.batch_number || '',
+        productName: adj.product_name,
+        oldSize: adj.old_size,
+        newSize: adj.new_size,
+        quantity: adj.quantity,
+        createdAt: adj.created_at,
+      }))
+    );
+    
+    setBatchExchangeRequests(prev => ({ ...prev, [batchId]: exchanges }));
+
+    // Fetch production items
     const orderIds = orders.map(o => o.id);
     const { data: items } = await supabase
       .from('order_items')
@@ -231,12 +262,13 @@ function BatchTab() {
 
     setBatchItems(prev => ({ ...prev, [batchId]: Array.from(aggMap.values()) }));
     setBatchLoading(null);
-  }, [expandedBatch, batchItems]);
+  }, [expandedBatch, batchItems, batches]);
 
   const handleRefresh = useCallback(async () => {
     // Clear cached data so it reloads
     setBatchItems({});
     setBatchOrderStatuses({});
+    setBatchExchangeRequests({});
     setExpandedBatch(null);
     await fetchBatches();
   }, [fetchBatches]);
@@ -263,6 +295,7 @@ function BatchTab() {
         const statuses = batchOrderStatuses[batch.id];
         const isLoadingBatch = batchLoading === batch.id;
         const delivery = deliveryCounts[batch.id];
+        const exchanges = batchExchangeRequests[batch.id] || [];
 
         return (
           <Collapsible key={batch.id} open={isOpen}>
@@ -291,7 +324,35 @@ function BatchTab() {
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="mt-4 pt-4 border-t">
+                  <div className="mt-4 pt-4 border-t space-y-4">
+                    {/* Trocas Pendentes Section */}
+                    {exchanges.length > 0 && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+                        <h3 className="font-bold text-amber-800 flex items-center gap-2">
+                          ⚠️ Trocas Pendentes
+                        </h3>
+                        <div className="space-y-2">
+                          {exchanges.map((exchange, idx) => (
+                            <div key={idx} className="bg-white border border-amber-100 rounded-lg p-3 text-sm">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 space-y-1">
+                                  <p><span className="font-medium">Aluno:</span> {exchange.studentName}</p>
+                                  <p><span className="font-medium">Lote:</span> {exchange.batchNumber}</p>
+                                  <p><span className="font-medium">Produto:</span> {exchange.productName}</p>
+                                  <p><span className="font-medium">Alteração:</span> Tamanho {exchange.oldSize} → {exchange.newSize}</p>
+                                  <p><span className="font-medium">Quantidade:</span> {exchange.quantity}</p>
+                                </div>
+                                <div className="flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2.5 py-0.5 text-xs font-semibold animate-pulse">
+                                  <RefreshCwIcon className="w-3 h-3" />
+                                  Troca Solicitada
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {isLoadingBatch ? (
                       <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-10" />)}</div>
                     ) : items && items.length === 0 ? (
@@ -314,9 +375,37 @@ function BatchTab() {
 function AllOrdersTab() {
   const [items, setItems] = useState<AggItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exchangeRequests, setExchangeRequests] = useState<any[]>([]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    
+    // Fetch exchange requests for all orders
+    const { data: exchangeOrders } = await supabase
+      .from('orders')
+      .select(`
+        id, student_name, import_batch_id,
+        order_adjustments!inner(id, product_name, old_size, new_size, quantity, created_at),
+        import_batches(batch_number)
+      `)
+      .eq('status', 'exchange_requested');
+
+    const exchanges = (exchangeOrders || []).flatMap(order => 
+      order.order_adjustments.map(adj => ({
+        orderId: order.id,
+        studentName: order.student_name,
+        batchNumber: (order as any).import_batches?.batch_number || 'N/A',
+        productName: adj.product_name,
+        oldSize: adj.old_size,
+        newSize: adj.new_size,
+        quantity: adj.quantity,
+        createdAt: adj.created_at,
+      }))
+    );
+    
+    setExchangeRequests(exchanges);
+
+    // Fetch regular orders for production items
     const { data: orders } = await supabase
       .from('orders')
       .select('id')
@@ -369,6 +458,35 @@ function AllOrdersTab() {
           Atualizar
         </Button>
       </div>
+      
+      {/* Trocas Pendentes Section */}
+      {!loading && exchangeRequests.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+          <h3 className="font-bold text-amber-800 flex items-center gap-2">
+            ⚠️ Trocas Pendentes
+          </h3>
+          <div className="space-y-2">
+            {exchangeRequests.map((exchange, idx) => (
+              <div key={idx} className="bg-white border border-amber-100 rounded-lg p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 space-y-1">
+                    <p><span className="font-medium">Aluno:</span> {exchange.studentName}</p>
+                    <p><span className="font-medium">Lote:</span> {exchange.batchNumber}</p>
+                    <p><span className="font-medium">Produto:</span> {exchange.productName}</p>
+                    <p><span className="font-medium">Alteração:</span> Tamanho {exchange.oldSize} → {exchange.newSize}</p>
+                    <p><span className="font-medium">Quantidade:</span> {exchange.quantity}</p>
+                  </div>
+                  <div className="flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2.5 py-0.5 text-xs font-semibold animate-pulse">
+                    <RefreshCwIcon className="w-3 h-3" />
+                    Troca Solicitada
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12" />)}</div>
       ) : items.length === 0 ? (
