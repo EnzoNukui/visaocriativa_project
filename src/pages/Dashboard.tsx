@@ -90,26 +90,35 @@ const Dashboard = () => {
     const fetchPendingExchanges = async () => {
       if (!isSupplier) return;
       
-      const { data: exchangeOrders } = await supabase
+      console.log('Fetching pending exchanges for supplier:', user.id);
+      
+      // Temporarily remove supplier_id filter since it might be null on existing orders
+      const { data: exchangeOrders, error: ordersError } = await supabase
         .from('orders')
         .select(`
           id,
           order_number,
           student_name,
           import_batch_id,
-          import_batches!inner(batch_number)
+          supplier_id,
+          import_batches(batch_number)
         `)
-        .eq('status', 'exchange_requested')
-        .eq('supplier_id', user.id);
+        .eq('status', 'exchange_requested');
+
+      console.log('Exchange orders found:', exchangeOrders);
+      console.log('Orders error:', ordersError);
 
       if (exchangeOrders && exchangeOrders.length > 0) {
         // Get adjustments for these orders
         const orderIds = exchangeOrders.map(o => o.id);
-        const { data: adjustments } = await supabase
+        const { data: adjustments, error: adjustmentsError } = await supabase
           .from('order_adjustments')
           .select('order_id, product_name, old_size, new_size, quantity')
           .in('order_id', orderIds)
           .eq('status', 'pending');
+
+        console.log('Adjustments found:', adjustments);
+        console.log('Adjustments error:', adjustmentsError);
 
         // Combine order and adjustment data
         const exchangesWithDetails = exchangeOrders.map(order => {
@@ -120,8 +129,10 @@ const Dashboard = () => {
           };
         }).filter(exchange => exchange.adjustment); // Only include orders with adjustments
 
+        console.log('Final exchanges with details:', exchangesWithDetails);
         setPendingExchanges(exchangesWithDetails);
       } else {
+        console.log('No exchange orders found, setting empty array');
         setPendingExchanges([]);
       }
     };
