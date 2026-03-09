@@ -130,10 +130,9 @@ const Dashboard = () => {
         .from('import_batches')
         .select('id, batch_number, imported_at, total_orders')
         .eq('status', 'active')
-        .order('imported_at', { ascending: true }); // Soonest first
+        .order('imported_at', { ascending: true });
 
       if (isSupplier) {
-        // For suppliers, only show batches that contain their orders
         const { data: supplierOrders } = await supabase
           .from('orders')
           .select('import_batch_id')
@@ -143,11 +142,6 @@ const Dashboard = () => {
         if (supplierOrders && supplierOrders.length > 0) {
           const batchIds = [...new Set(supplierOrders.map(o => o.import_batch_id))];
           batchQuery = batchQuery.in('id', batchIds);
-        } else {
-          // If no orders found with supplier_id (likely because supplier_id is null on orders),
-          // show all active batches so suppliers can see delivery dates
-          // TODO: Remove this when supplier_id is properly set on orders
-          console.log('No orders found for supplier, showing all batches temporarily');
         }
       }
 
