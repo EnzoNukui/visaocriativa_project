@@ -504,15 +504,17 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
             total_amount: group.totalSale,
             supplier_total_amount: group.totalSupplier,
             school_profit: group.totalProfit,
+            repasse_amount: group.totalSupplier,
             status: 'awaiting_payment',
             created_by: user.id,
+            order_number: '',
             import_batch_id: batchId,
             supplier_id: supplierId,
           })
           .select();
 
         if (orderError || !orderData || orderData.length === 0) {
-          failCount++;
+          failErrors.push(`Erro ao criar pedido para ${group.studentName}: ${orderError?.message || 'desconhecido'}`);
           continue;
         }
 
