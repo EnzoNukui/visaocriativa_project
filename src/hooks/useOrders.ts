@@ -112,6 +112,10 @@ export function useOrders() {
     try {
       const schoolProfit = order.totalAmount - order.supplierTotalAmount;
 
+      // Get default supplier id
+      const { data: supplierIdResult } = await supabase.rpc('get_default_supplier_id');
+      const supplierId = supplierIdResult as string | null;
+
       const { data: lastOrder } = await supabase
         .from('orders')
         .select('order_number')
@@ -137,6 +141,7 @@ export function useOrders() {
         status: order.status,
         created_by: order.createdBy,
         order_number: orderNumber,
+        supplier_id: supplierId,
       };
       if (order.importBatchId) {
         insertPayload.import_batch_id = order.importBatchId;

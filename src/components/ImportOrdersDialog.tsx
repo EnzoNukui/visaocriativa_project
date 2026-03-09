@@ -483,6 +483,10 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       console.error('Failed to create import log');
     }
 
+    // Get default supplier id
+    const { data: supplierIdResult } = await supabase.rpc('get_default_supplier_id');
+    const supplierId = supplierIdResult as string | null;
+
     // Get current highest order number
     const { data: lastOrder } = await supabase
       .from('orders')
