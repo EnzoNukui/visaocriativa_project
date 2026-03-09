@@ -548,6 +548,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_default_supplier_id: { Args: never; Returns: string }
       get_user_status: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
