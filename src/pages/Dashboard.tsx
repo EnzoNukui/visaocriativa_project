@@ -137,6 +137,7 @@ const Dashboard = () => {
       }
     };
 
+    console.log('Running fetchPendingExchanges for isSupplier:', isSupplier);
     fetchPendingExchanges();
 
     // Fetch batches for calendar popover
