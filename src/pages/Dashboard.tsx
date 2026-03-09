@@ -104,8 +104,10 @@ const Dashboard = () => {
           const batchIds = [...new Set(supplierOrders.map(o => o.import_batch_id))];
           batchQuery = batchQuery.in('id', batchIds);
         } else {
-          setBatches([]);
-          return;
+          // If no orders found with supplier_id (likely because supplier_id is null on orders),
+          // show all active batches so suppliers can see delivery dates
+          // TODO: Remove this when supplier_id is properly set on orders
+          console.log('No orders found for supplier, showing all batches temporarily');
         }
       }
 
