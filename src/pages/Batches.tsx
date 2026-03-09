@@ -866,6 +866,10 @@ export default function Batches() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                        <Calendar className="w-3 h-3" />
+                        📅 Entrega prevista: {addBusinessDays(new Date(batch.imported_at), 20).toLocaleDateString('pt-BR')}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                         <FileSpreadsheet className="w-3 h-3" />
                         {batch.file_name}
                       </div>
