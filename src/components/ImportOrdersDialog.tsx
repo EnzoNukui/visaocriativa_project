@@ -509,7 +509,7 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
             created_by: user.id,
             import_batch_id: batchId,
             supplier_id: supplierId,
-          })
+          } as any)
           .select();
 
         if (orderError || !orderData || orderData.length === 0) {
