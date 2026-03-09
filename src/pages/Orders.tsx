@@ -168,7 +168,7 @@ const Orders = () => {
         const { data: allOrders } = await supabase
           .from('orders')
           .select('total_amount, supplier_total_amount, repasse_completed, status')
-          .neq('status', 'cancelled');
+          .eq('status', 'paid');
         if (allOrders) {
           const totalSchool = allOrders.reduce((s, o) => s + Number(o.total_amount), 0);
           const totalSupplier = allOrders.reduce((s, o) => s + Number(o.supplier_total_amount), 0);
