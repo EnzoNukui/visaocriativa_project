@@ -507,7 +507,6 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
             repasse_amount: group.totalSupplier,
             status: 'awaiting_payment',
             created_by: user.id,
-            order_number: '',
             import_batch_id: batchId,
             supplier_id: supplierId,
           })
