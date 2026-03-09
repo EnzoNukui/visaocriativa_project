@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,12 +40,20 @@ const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'o
 
 const Users = () => {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const { toast } = useToast();
 
   const isMaster = currentUser?.isMaster;
+
+  useEffect(() => {
+    if (currentUser && !currentUser.isMaster) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, navigate]);
+
 
   const fetchUsers = async () => {
     setLoading(true);
