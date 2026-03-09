@@ -243,15 +243,52 @@ function BatchTab() {
     
     setBatchExchangeRequests(prev => ({ ...prev, [batchId]: exchanges }));
 
-    // Fetch production items
+    // Fetch production items (with full details for order modal)
     const orderIds = orders.map(o => o.id);
     const { data: items } = await supabase
       .from('order_items')
-      .select('product_id, product_name, size, quantity')
+      .select('id, order_id, product_id, product_name, size, quantity, unit_price, supplier_price, total, supplier_total')
       .in('order_id', orderIds);
 
+    const allItems = items || [];
+
+    // Build full Order objects for modal
+    const fullOrders: Order[] = orders.map(o => ({
+      id: o.id,
+      orderNumber: o.order_number,
+      studentName: o.student_name,
+      grade: o.grade,
+      responsibleName: o.responsible_name,
+      phone: o.phone,
+      totalAmount: Number(o.total_amount),
+      supplierTotalAmount: Number(o.supplier_total_amount),
+      schoolProfit: Number(o.school_profit ?? (Number(o.total_amount) - Number(o.supplier_total_amount))),
+      status: o.status,
+      createdAt: o.created_at,
+      createdBy: o.created_by,
+      repasseCompleted: o.repasse_completed,
+      repasseDate: o.repasse_date,
+      repasseConfirmedBy: o.repasse_confirmed_by,
+      repasseAmount: Number(o.repasse_amount ?? 0),
+      items: allItems
+        .filter(i => i.order_id === o.id)
+        .map(i => ({
+          id: i.id,
+          productId: i.product_id,
+          productName: i.product_name,
+          size: i.size,
+          quantity: i.quantity,
+          unitPrice: Number(i.unit_price),
+          supplierPrice: Number(i.supplier_price),
+          total: Number(i.total),
+          supplierTotal: Number(i.supplier_total),
+        })),
+    }));
+    setBatchFullOrders(prev => ({ ...prev, [batchId]: fullOrders }));
+
+    // Aggregate for production table
     const aggMap = new Map<string, AggItem>();
-    (items || []).forEach(i => {
+    allItems.forEach(i => {
       const key = `${i.product_id}||${i.size}`;
       const existing = aggMap.get(key);
       if (existing) {
@@ -271,9 +308,9 @@ function BatchTab() {
   }, [expandedBatch, batchItems, batches]);
 
   const handleRefresh = useCallback(async () => {
-    // Clear cached data so it reloads
     setBatchItems({});
     setBatchOrderStatuses({});
+    setBatchFullOrders({});
     setBatchExchangeRequests({});
     setExpandedBatch(null);
     await fetchBatches();
