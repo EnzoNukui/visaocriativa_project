@@ -483,16 +483,17 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
       console.error('Failed to create import log');
     }
 
-    // Get supplier_id (first supplier user)
-    let supplierId: string | null = null;
-    const { data: supplierRoles } = await supabase
-      .from('user_roles')
-      .select('user_id')
-      .eq('role', 'supplier')
-      .limit(1);
-    if (supplierRoles && supplierRoles.length > 0) {
-      supplierId = supplierRoles[0].user_id;
-    }
+    // Get current highest order number
+    const { data: lastOrder } = await supabase
+      .from('orders')
+      .select('order_number')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let lastNumber = lastOrder?.order_number
+      ? parseInt(lastOrder.order_number.replace('VC-', ''))
+      : 0;
 
     let totalItemsCount = 0;
     let totalSaleSum = 0;
@@ -501,6 +502,9 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
 
     for (const group of groupedOrders) {
       try {
+        lastNumber++;
+        const orderNumber = `VC-${String(lastNumber).padStart(4, '0')}`;
+
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -514,15 +518,15 @@ export default function ImportOrdersDialog({ open, onOpenChange, onComplete }: P
             repasse_amount: group.totalSupplier,
             status: 'awaiting_payment',
             created_by: user.id,
-            order_number: 'TEMP', // Will be overwritten by DB trigger
+            order_number: orderNumber,
             import_batch_id: batchId,
-            supplier_id: supplierId,
           })
           .select();
 
         if (orderError || !orderData || orderData.length === 0) {
           failCount++;
           failErrors.push(`Erro ao criar pedido para ${group.studentName}: ${orderError?.message || 'desconhecido'}`);
+          lastNumber--;
           continue;
         }
 

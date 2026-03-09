@@ -112,16 +112,18 @@ export function useOrders() {
     try {
       const schoolProfit = order.totalAmount - order.supplierTotalAmount;
 
-      // Get supplier_id (first supplier user)
-      let supplierId: string | null = null;
-      const { data: supplierRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'supplier')
-        .limit(1);
-      if (supplierRoles && supplierRoles.length > 0) {
-        supplierId = supplierRoles[0].user_id;
-      }
+      const { data: lastOrder } = await supabase
+        .from('orders')
+        .select('order_number')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const lastNumber = lastOrder?.order_number
+        ? parseInt(lastOrder.order_number.replace('VC-', ''))
+        : 0;
+      const nextNumber = String(lastNumber + 1).padStart(4, '0');
+      const orderNumber = `VC-${nextNumber}`;
 
       const insertPayload: any = {
         student_name: order.studentName,
@@ -134,8 +136,7 @@ export function useOrders() {
         repasse_amount: order.supplierTotalAmount,
         status: order.status,
         created_by: order.createdBy,
-        order_number: 'TEMP', // Will be overwritten by DB trigger
-        supplier_id: supplierId,
+        order_number: orderNumber,
       };
       if (order.importBatchId) {
         insertPayload.import_batch_id = order.importBatchId;
