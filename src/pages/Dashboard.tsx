@@ -305,6 +305,44 @@ const Dashboard = () => {
         </Alert>
       )}
 
+      {/* Supplier pending exchanges section */}
+      {isSupplier && pendingExchanges.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <h3 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            ⚠️ Trocas Pendentes
+          </h3>
+          <div className="space-y-3">
+            {pendingExchanges.map((exchange) => (
+              <div 
+                key={exchange.id}
+                className="bg-white border border-amber-200 rounded-lg p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <span><strong>Aluno:</strong> {exchange.student_name}</span>
+                      <span><strong>Lote:</strong> {exchange.import_batches?.batch_number || 'N/A'}</span>
+                    </div>
+                    {exchange.adjustment && (
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <span><strong>Produto:</strong> {exchange.adjustment.product_name}</span>
+                        <span><strong>Alteração:</strong> Tamanho {exchange.adjustment.old_size} → {exchange.adjustment.new_size}</span>
+                        <span><strong>Quantidade:</strong> {exchange.adjustment.quantity}</span>
+                      </div>
+                    )}
+                  </div>
+                  <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-300 shrink-0">
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Troca Solicitada
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
         <Card className="min-w-[160px] w-full h-full min-h-[90px]">
           <CardContent className="p-4 flex items-center gap-3 h-full">
