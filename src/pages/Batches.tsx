@@ -210,10 +210,16 @@ function AddOrderToBatchDialog({
         .limit(1)
         .maybeSingle();
 
-      const lastNumber = lastOrder?.order_number
-        ? parseInt(lastOrder.order_number.replace('VC-', ''))
-        : 0;
-      const orderNumber = `VC-${String(lastNumber + 1).padStart(4, '0')}`;
+      // Get supplier_id
+      let supplierId: string | null = null;
+      const { data: supplierRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'supplier')
+        .limit(1);
+      if (supplierRoles && supplierRoles.length > 0) {
+        supplierId = supplierRoles[0].user_id;
+      }
 
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
@@ -228,8 +234,9 @@ function AddOrderToBatchDialog({
           repasse_amount: supplierTotalAmount,
           status: 'awaiting_payment',
           created_by: user?.id ?? '',
-          order_number: orderNumber,
+          order_number: 'TEMP', // Will be overwritten by DB trigger
           import_batch_id: batchId,
+          supplier_id: supplierId,
         })
         .select();
 
