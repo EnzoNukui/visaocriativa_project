@@ -140,9 +140,11 @@ function BatchTab() {
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
   const [batchItems, setBatchItems] = useState<Record<string, AggItem[]>>({});
   const [batchOrderStatuses, setBatchOrderStatuses] = useState<Record<string, OrderStatus[]>>({});
+  const [batchFullOrders, setBatchFullOrders] = useState<Record<string, Order[]>>({});
   const [batchLoading, setBatchLoading] = useState<string | null>(null);
   const [deliveryCounts, setDeliveryCounts] = useState<Record<string, DeliveryCount>>({});
   const [batchExchangeRequests, setBatchExchangeRequests] = useState<Record<string, any[]>>({});
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const fetchBatches = useCallback(async () => {
     setLoading(true);
