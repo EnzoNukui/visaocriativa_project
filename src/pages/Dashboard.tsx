@@ -90,10 +90,7 @@ const Dashboard = () => {
     const fetchPendingExchanges = async () => {
       if (!isSupplier) return;
       
-      console.log('Fetching pending exchanges for supplier:', user.id);
-      
-      // Temporarily remove supplier_id filter since it might be null on existing orders
-      const { data: exchangeOrders, error: ordersError } = await supabase
+      const { data: exchangeOrders } = await supabase
         .from('orders')
         .select(`
           id,
@@ -103,41 +100,28 @@ const Dashboard = () => {
           supplier_id,
           import_batches(batch_number)
         `)
-        .eq('status', 'exchange_requested');
-
-      console.log('Exchange orders found:', exchangeOrders);
-      console.log('Orders error:', ordersError);
+        .eq('status', 'exchange_requested')
+        .eq('supplier_id', user.id);
 
       if (exchangeOrders && exchangeOrders.length > 0) {
-        // Get adjustments for these orders
         const orderIds = exchangeOrders.map(o => o.id);
-        const { data: adjustments, error: adjustmentsError } = await supabase
+        const { data: adjustments } = await supabase
           .from('order_adjustments')
           .select('order_id, product_name, old_size, new_size, quantity')
           .in('order_id', orderIds)
           .eq('status', 'pending');
 
-        console.log('Adjustments found:', adjustments);
-        console.log('Adjustments error:', adjustmentsError);
-
-        // Combine order and adjustment data
         const exchangesWithDetails = exchangeOrders.map(order => {
           const adjustment = adjustments?.find(adj => adj.order_id === order.id);
-          return {
-            ...order,
-            adjustment
-          };
-        }).filter(exchange => exchange.adjustment); // Only include orders with adjustments
+          return { ...order, adjustment };
+        }).filter(exchange => exchange.adjustment);
 
-        console.log('Final exchanges with details:', exchangesWithDetails);
         setPendingExchanges(exchangesWithDetails);
       } else {
-        console.log('No exchange orders found, setting empty array');
         setPendingExchanges([]);
       }
     };
 
-    console.log('Running fetchPendingExchanges for isSupplier:', isSupplier);
     fetchPendingExchanges();
 
     // Fetch batches for calendar popover
