@@ -369,15 +369,33 @@ const Orders = () => {
 
       if (batchOrderIds && batchOrderIds.length > 0) {
         const orderIds = batchOrderIds.map(o => o.id);
+        
+        // Get pending adjustments total
+        const { data: adjustments } = await supabase
+          .from('order_adjustments')
+          .select('adjustment_value')
+          .in('order_id', orderIds)
+          .eq('status', 'pending');
+
+        const adjustmentTotal = (adjustments || []).reduce((s, a) => s + Number(a.adjustment_value), 0);
+
+        // Mark adjustments as resolved
         await supabase
           .from('order_adjustments')
           .update({ status: 'resolved', resolved_by: user.id, resolved_at: new Date().toISOString() })
           .in('order_id', orderIds)
           .eq('status', 'pending');
+        
+        if (adjustmentTotal !== 0) {
+          toast({ title: 'Repasse confirmado', description: `Repasse confirmado para lote ${batchNumber}. Ajustes de R$ ${adjustmentTotal.toFixed(2)} incluídos.` });
+        } else {
+          toast({ title: 'Repasse confirmado', description: `Repasse confirmado para todos os pedidos do lote ${batchNumber}.` });
+        }
+      } else {
+        toast({ title: 'Repasse confirmado', description: `Repasse confirmado para todos os pedidos do lote ${batchNumber}.` });
       }
 
       invalidateCache();
-      toast({ title: 'Repasse confirmado', description: `Repasse confirmado para todos os pedidos do lote ${batchNumber}.` });
     } catch {
       toast({ title: 'Erro', description: 'Erro ao confirmar repasse. Tente novamente.', variant: 'destructive' });
     }
