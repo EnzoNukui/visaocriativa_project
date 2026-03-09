@@ -168,14 +168,13 @@ const Orders = () => {
         const { data: allOrders } = await supabase
           .from('orders')
           .select('total_amount, supplier_total_amount, repasse_completed, status')
-          .eq('status', 'paid');
+          .neq('status', 'cancelled');
         if (allOrders) {
           const totalSchool = allOrders.reduce((s, o) => s + Number(o.total_amount), 0);
           const totalSupplier = allOrders.reduce((s, o) => s + Number(o.supplier_total_amount), 0);
           const totalProfit = totalSchool - totalSupplier;
           const pendingProfit = allOrders.filter(o => !o.repasse_completed).reduce((s, o) => s + Number(o.total_amount) - Number(o.supplier_total_amount), 0);
-          const settledProfit = allOrders.filter(o => o.repasse_completed).reduce((s, o) => s + Number(o.total_amount) - Number(o.supplier_total_amount), 0);
-          setFinancialSummary({ totalSchool, totalSupplier, totalProfit, pendingProfit, settledProfit });
+          setFinancialSummary({ totalSchool, totalSupplier, totalProfit, pendingProfit, settledProfit: totalProfit - pendingProfit });
         }
       }
     } finally {
