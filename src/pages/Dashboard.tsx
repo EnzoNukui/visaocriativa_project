@@ -46,6 +46,8 @@ const Dashboard = () => {
   const [pendingComplementar, setPendingComplementar] = useState<{ count: number; totalValue: number }>({ count: 0, totalValue: 0 });
   // Confirmed complementar total for profit impact
   const [confirmedComplementarTotal, setConfirmedComplementarTotal] = useState(0);
+  // Pending exchanges for supplier
+  const [pendingExchanges, setPendingExchanges] = useState<any[]>([]);
 
   // Calendar popover state
   const [calendarOpen, setCalendarOpen] = useState(false);
