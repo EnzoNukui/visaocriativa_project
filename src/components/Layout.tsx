@@ -36,7 +36,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     { to: '/batches', label: 'Lotes', icon: Layers, show: isAdmin || isSupplier },
     { to: '/supplier-production', label: 'Lista de Pedidos', icon: ClipboardList, show: isSupplier && !isAdmin },
     { to: '/products', label: 'Produtos', icon: Package, show: isAdmin },
-    { to: '/users', label: 'Usuários', icon: Users, show: isAdmin },
+    { to: '/users', label: 'Usuários', icon: Users, show: !!user?.isMaster },
     { to: '/backups', label: 'Backups', icon: HardDrive, show: isAdmin },
   ].filter(i => i.show);
 
