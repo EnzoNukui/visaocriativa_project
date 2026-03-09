@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload, ChevronRight, ChevronDown, CheckCircle, RefreshCw } from 'lucide-react';
+import { PlusCircle, Trash2, Search, Eye, DollarSign, TrendingUp, ArrowRightLeft, Upload, ChevronRight, ChevronDown, CheckCircle, RefreshCw, Calendar } from 'lucide-react';
 import ExchangeRequestModal from '@/components/ExchangeRequestModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -838,10 +838,18 @@ function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAm
       <div className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
         <button className="flex items-center gap-3 flex-1 text-left" onClick={onToggle}>
           {isExpanded ? <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" /> : <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />}
-          <span className="font-bold text-sm">{batchNumber}</span>
-          {importedAt && (
-            <span className="text-xs text-muted-foreground">{new Date(importedAt).toLocaleDateString('pt-BR')}</span>
-          )}
+          <div className="flex flex-col gap-0.5">
+            <span className="font-bold text-sm">{batchNumber}</span>
+            {importedAt && (
+              <>
+                <span className="text-xs text-muted-foreground">{new Date(importedAt).toLocaleDateString('pt-BR')}</span>
+                <div className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Entrega prevista: {addBusinessDays(new Date(importedAt), 20).toLocaleDateString('pt-BR')}</span>
+                </div>
+              </>
+            )}
+          </div>
           {isManual && (
             <span className="text-xs text-muted-foreground">Pedidos criados manualmente</span>
           )}
@@ -939,8 +947,18 @@ function SearchGroupedView({ allOrders, loading, batches, filterOrders, renderOr
         return (
           <Card key={batchId}>
             <div className="p-3 border-b bg-muted/30 flex items-center gap-3 text-sm">
-              <span className="font-bold">{batch.batchNumber}</span>
-              {batch.importedAt && <span className="text-xs text-muted-foreground">{new Date(batch.importedAt).toLocaleDateString('pt-BR')}</span>}
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold">{batch.batchNumber}</span>
+                {batch.importedAt && (
+                  <>
+                    <span className="text-xs text-muted-foreground">{new Date(batch.importedAt).toLocaleDateString('pt-BR')}</span>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Entrega prevista: {addBusinessDays(new Date(batch.importedAt), 20).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  </>
+                )}
+              </div>
               <span className="text-xs text-muted-foreground ml-auto">{grouped[batchId].length} resultado(s)</span>
             </div>
             <CardContent className="p-0">
