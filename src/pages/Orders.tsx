@@ -168,7 +168,7 @@ const Orders = () => {
         const { data: allOrders } = await supabase
           .from('orders')
           .select('total_amount, supplier_total_amount, repasse_completed, status')
-          .eq('status', 'paid');
+          .neq('status', 'cancelled');
         if (allOrders) {
           const totalSchool = allOrders.reduce((s, o) => s + Number(o.total_amount), 0);
           const totalSupplier = allOrders.reduce((s, o) => s + Number(o.supplier_total_amount), 0);
@@ -353,12 +353,13 @@ const Orders = () => {
   const handleBatchRepasse = async (batchId: string, batchNumber: string) => {
     if (!user) return;
     try {
+      // Mark orders as paid
       await supabase.from('orders').update({
         repasse_completed: true,
         repasse_date: new Date().toISOString(),
         repasse_confirmed_by: user.id,
         status: 'paid',
-      }).eq('import_batch_id', batchId).neq('status', 'cancelled').neq('status', 'exchange_requested');
+      }).eq('import_batch_id', batchId).neq('status', 'cancelled');
 
       // Resolve pending adjustments for this batch's orders
       const { data: batchOrderIds } = await supabase

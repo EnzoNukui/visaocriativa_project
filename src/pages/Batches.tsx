@@ -215,10 +215,6 @@ function AddOrderToBatchDialog({
         : 0;
       const orderNumber = `VC-${String(lastNumber + 1).padStart(4, '0')}`;
 
-      // Get default supplier id
-      const { data: supplierIdResult } = await supabase.rpc('get_default_supplier_id');
-      const supplierId = supplierIdResult as string | null;
-
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -234,7 +230,6 @@ function AddOrderToBatchDialog({
           created_by: user?.id ?? '',
           order_number: orderNumber,
           import_batch_id: batchId,
-          supplier_id: supplierId,
         })
         .select();
 
