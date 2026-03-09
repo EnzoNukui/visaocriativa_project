@@ -245,15 +245,35 @@ const Orders = () => {
     });
   };
 
+  const clearExchangeRecords = async (orderId: string) => {
+    await supabase
+      .from('order_adjustments')
+      .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+      .eq('order_id', orderId)
+      .eq('status', 'pending');
+
+    await supabase
+      .from('repasse_complementar')
+      .delete()
+      .eq('order_id', orderId)
+      .eq('status', 'pending');
+  };
+
   const handleStatusChange = async (id: string, status: string) => {
     if (status === 'exchange_requested') {
-      // Find the order and its items to open the exchange modal
       const order = Object.values(batchOrders).flat().find(o => o?.id === id) || allOrdersForSearch?.find(o => o.id === id);
       if (order && order.items.length > 0) {
         setExchangeModal({ orderId: id, orderNumber: order.orderNumber, items: order.items });
         return;
       }
     }
+
+    // If changing FROM exchange_requested, clear related records
+    const currentOrder = Object.values(batchOrders).flat().find(o => o?.id === id) || allOrdersForSearch?.find(o => o.id === id);
+    if (currentOrder?.status === 'exchange_requested' && status !== 'exchange_requested') {
+      await clearExchangeRecords(id);
+    }
+
     await supabase.from('orders').update({ status }).eq('id', id);
     invalidateCache();
     toast({ title: 'Status atualizado', description: `Pedido marcado como "${statusLabels[status] || status}"` });
@@ -385,8 +405,22 @@ const Orders = () => {
 
   const handleBatchStatusChange = async (batchId: string, batchNumber: string, newStatus: string) => {
     try {
+      // Clear exchange records for orders changing FROM exchange_requested
+      if (newStatus !== 'exchange_requested') {
+        const { data: exchangeOrders } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('import_batch_id', batchId)
+          .eq('status', 'exchange_requested');
+
+        if (exchangeOrders && exchangeOrders.length > 0) {
+          for (const order of exchangeOrders) {
+            await clearExchangeRecords(order.id);
+          }
+        }
+      }
+
       await supabase.from('orders').update({ status: newStatus }).eq('import_batch_id', batchId);
-      // Update local state immediately
       setBatchOrders(prev => ({
         ...prev,
         [batchId]: (prev[batchId] || []).map(o => ({ ...o, status: newStatus })),
