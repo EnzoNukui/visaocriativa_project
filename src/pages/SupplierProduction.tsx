@@ -7,9 +7,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, RefreshCw as RefreshCwIcon, Calendar } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw as RefreshCwIcon, Calendar, Eye } from 'lucide-react';
 import { addBusinessDays } from '@/lib/business-days';
 import SupplierComplementarWarning from '@/components/SupplierComplementarWarning';
+import OrderDetailModal from '@/components/OrderDetailModal';
+import type { Order } from '@/hooks/useOrders';
 
 // Size ordering
 const SIZE_ORDER = ['2', '4', '6', '8', '10', '12', '14', '16', 'PP', 'P', 'M', 'G', 'GG', 'EG', 'XG'];
