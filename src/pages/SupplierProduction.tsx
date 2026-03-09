@@ -199,16 +199,17 @@ function BatchTab() {
 
     setBatchLoading(batchId);
     
-    // Fetch orders
+    // Fetch orders with full details
     const { data: orders } = await supabase
       .from('orders')
-      .select('id, status')
+      .select('id, order_number, student_name, grade, responsible_name, phone, status, created_at, created_by, total_amount, supplier_total_amount, school_profit, repasse_completed, repasse_date, repasse_confirmed_by, repasse_amount')
       .eq('import_batch_id', batchId)
       .neq('status', 'cancelled');
 
     if (!orders || orders.length === 0) {
       setBatchItems(prev => ({ ...prev, [batchId]: [] }));
       setBatchOrderStatuses(prev => ({ ...prev, [batchId]: [] }));
+      setBatchFullOrders(prev => ({ ...prev, [batchId]: [] }));
       setBatchExchangeRequests(prev => ({ ...prev, [batchId]: [] }));
       setBatchLoading(null);
       return;
