@@ -6,8 +6,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, DollarSign, Clock, Package, TrendingUp, ArrowRightLeft, AlertTriangle, Calendar, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
+import { addBusinessDays } from '@/lib/business-days';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendente',
@@ -44,6 +47,10 @@ const Dashboard = () => {
   // Confirmed complementar total for profit impact
   const [confirmedComplementarTotal, setConfirmedComplementarTotal] = useState(0);
 
+  // Calendar popover state
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [batches, setBatches] = useState<any[]>([]);
+
   useEffect(() => {
     if (!user) return;
     const fetchComplementar = async () => {
@@ -76,7 +83,38 @@ const Dashboard = () => {
       }
     };
     fetchComplementar();
-  }, [user, orders]);
+
+    // Fetch batches for calendar popover
+    const fetchBatches = async () => {
+      let batchQuery = supabase
+        .from('import_batches')
+        .select('id, batch_number, imported_at, total_orders')
+        .eq('status', 'active')
+        .order('imported_at', { ascending: true }); // Soonest first
+
+      if (isSupplier) {
+        // For suppliers, only show batches that contain their orders
+        const { data: supplierOrders } = await supabase
+          .from('orders')
+          .select('import_batch_id')
+          .eq('supplier_id', user.id)
+          .not('import_batch_id', 'is', null);
+        
+        if (supplierOrders && supplierOrders.length > 0) {
+          const batchIds = [...new Set(supplierOrders.map(o => o.import_batch_id))];
+          batchQuery = batchQuery.in('id', batchIds);
+        } else {
+          setBatches([]);
+          return;
+        }
+      }
+
+      const { data: batchesData } = await batchQuery;
+      setBatches(batchesData || []);
+    };
+
+    fetchBatches();
+  }, [user, orders, isSupplier]);
 
   const nonCancelled = orders.filter(o => o.status !== 'cancelled');
   const totalRevenue = nonCancelled.reduce((s, o) => s + o.totalAmount, 0);
@@ -103,9 +141,81 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Olá, {user?.name}!</h2>
-        <p className="text-muted-foreground">Resumo geral do sistema</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Olá, {user?.name}!</h2>
+          <p className="text-muted-foreground">Resumo geral do sistema</p>
+        </div>
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="p-2 rounded-lg hover:bg-muted transition-colors">
+              <Calendar className="w-5 h-5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 max-h-96 overflow-y-auto p-0" align="end">
+            <div className="p-4 border-b bg-muted/30">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm">Datas de Entrega</h3>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6"
+                  onClick={() => setCalendarOpen(false)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="p-2">
+              {batches.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-6 text-center">Nenhum lote encontrado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {batches.map(batch => {
+                    const deliveryDate = addBusinessDays(new Date(batch.imported_at), 20);
+                    const today = new Date();
+                    const daysUntilDelivery = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                    
+                    let statusVariant: 'default' | 'secondary' | 'destructive' = 'default';
+                    let statusText = 'No Prazo';
+                    let statusIcon = '🟢';
+                    
+                    if (daysUntilDelivery < 0) {
+                      statusVariant = 'destructive';
+                      statusText = 'Atrasado';
+                      statusIcon = '🔴';
+                    } else if (daysUntilDelivery <= 5) {
+                      statusVariant = 'secondary';
+                      statusText = 'Atenção';
+                      statusIcon = '🟡';
+                    }
+
+                    return (
+                      <div
+                        key={batch.id}
+                        className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                        onClick={() => {
+                          setCalendarOpen(false);
+                          navigate('/batches');
+                        }}
+                      >
+                        <div className="flex flex-col gap-1 min-w-0 flex-1">
+                          <span className="font-bold text-sm">{batch.batch_number}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {deliveryDate.toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                        <Badge variant={statusVariant} className="text-xs shrink-0">
+                          {statusIcon} {statusText}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Admin warning banner for pending repasse complementar */}
