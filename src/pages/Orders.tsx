@@ -530,40 +530,7 @@ const Orders = () => {
 
   return (
     <div className="space-y-4">
-      {isSupplier && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><DollarSign className="w-5 h-5 text-primary" /></div>
-              <div><p className="text-xs text-muted-foreground">Total Vendido (Escola)</p><p className="text-lg font-bold">R$ {financialSummary.totalSchool.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><DollarSign className="w-5 h-5 text-blue-700" /></div>
-              <div><p className="text-xs text-muted-foreground">Custo Fornecedor</p><p className="text-lg font-bold">R$ {financialSummary.totalSupplier.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center"><TrendingUp className="w-5 h-5 text-green-700" /></div>
-              <div><p className="text-xs text-muted-foreground">Diferença (Lucro)</p><p className="text-lg font-bold text-green-600">R$ {financialSummary.totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-            </CardContent>
-          </Card>
-          <Card className="border-yellow-300 bg-yellow-50/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center"><ArrowRightLeft className="w-5 h-5 text-yellow-700" /></div>
-              <div><p className="text-xs text-muted-foreground font-medium">Pendente Repasse</p><p className="text-lg font-bold text-yellow-700">R$ {financialSummary.pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-            </CardContent>
-          </Card>
-          <Card className="border-green-300 bg-green-50/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center"><DollarSign className="w-5 h-5 text-green-700" /></div>
-              <div><p className="text-xs text-muted-foreground font-medium">Lucro Repassado</p><p className="text-lg font-bold text-green-600">R$ {financialSummary.settledProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Financial cards removed for supplier — supplier must NOT see financial data */}
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -813,7 +780,7 @@ function BatchCard({ batchKey, batchNumber, importedAt, totalOrders, totalSaleAm
             <span className="text-xs text-muted-foreground">Pedidos criados manualmente</span>
           )}
           <span className="text-xs text-muted-foreground ml-auto">{totalOrders} pedido(s)</span>
-          <span className="text-xs font-medium">R$ {totalSaleAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          {isAdmin && <span className="text-xs font-medium">R$ {totalSaleAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>}
         </button>
         {isAdmin && !isManual && (
           <div className="flex items-center gap-1 shrink-0">
