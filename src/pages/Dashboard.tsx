@@ -389,7 +389,7 @@ const Dashboard = () => {
             </div>
             <div className="flex flex-col justify-center min-w-0">
               <p className="text-xs text-muted-foreground leading-tight whitespace-nowrap">Pendente Repasse</p>
-              <p className="text-lg font-bold leading-tight whitespace-nowrap text-yellow-700">R$ {pendingProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-lg font-bold leading-tight whitespace-nowrap text-yellow-700">R$ {pendingRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </CardContent>
         </Card>
